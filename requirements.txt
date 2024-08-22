@@ -1,0 +1,7 @@
+crewai==0.51.1
+crewai_tools==0.8.3
+Flask==3.0.3
+langchain==0.2.14
+langchain_community==0.2.12
+langchain_openai==0.1.22
+python-dotenv==1.0.1

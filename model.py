@@ -2,12 +2,6 @@ from crewai import Agent, Crew, Process, Task
 from crewai_tools import DirectorySearchTool
 from dotenv import load_dotenv
 import os
-from langchain.chains import LLMChain, ConversationalRetrievalChain
-from langchain.memory import (
-    ConversationBufferMemory,
-    ReadOnlySharedMemory,
-    ConversationBufferWindowMemory,
-)
 from langchain.prompts import PromptTemplate
 from langchain.agents import Tool
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -15,10 +9,14 @@ from langchain.vectorstores import Chroma
 
 # Load environment variables
 load_dotenv()
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
 # Set API keys
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
 os.environ["HF_TOKEN"] = os.getenv("HF_TOKEN")
+
+
+persist_directory = "dbAlldata"
+
 
 from langchain_openai import ChatOpenAI
 from langchain.chains import RetrievalQA
@@ -27,7 +25,7 @@ from langchain.chains import RetrievalQA
 llm = ChatOpenAI(
     openai_api_base="https://api.groq.com/openai/v1",
     openai_api_key=os.environ["GROQ_API_KEY"],
-    model_name="llama-3.1-70b-versatile",
+    model_name="llama-3.1-8b-instant",
     temperature=0,
 )
 embeddings = HuggingFaceEmbeddings(
@@ -35,12 +33,12 @@ embeddings = HuggingFaceEmbeddings(
 )
 # Initialize the search tool with directory search
 search_tool = DirectorySearchTool(
-    directory="docs-data",
+    directory="AllData",
     config=dict(
         llm=dict(
             provider="groq",
             config=dict(
-                model="llama-3.1-70b-versatile",
+                model="llama-3.1-8b-instant",
             ),
         ),
         embedder=dict(
@@ -53,55 +51,30 @@ search_tool = DirectorySearchTool(
 )
 
 """ Retriever for citations """
-persist_directory = "db2"
 vectordb = Chroma(persist_directory=persist_directory, embedding_function=embeddings)
-retriever = vectordb.as_retriever(search_kwargs={"k": 4})
 
-# Define the Conversational Memory
-memory = ConversationBufferWindowMemory(
-    memory_key="chat_history", return_source_documents=True, k=5
-)
-# memory = ConversationBufferMemory(memory_key="chat_history", return_source_documents=True)
-readonlymemory = ReadOnlySharedMemory(memory=memory)
-
-# Define a PromptTemplate for summarizing conversations
-template = """This is a conversation between a human and AI agent:
-
-{chat_history}
-
-Write a summary of the conversation for {input}:
-"""
-prompt = PromptTemplate(input_variables=["input", "chat_history"], template=template)
-
-# Define the LLMChain for conversation summarization
-summary_chain = LLMChain(
-    llm=llm,
-    prompt=prompt,
-    verbose=True,
-    memory=readonlymemory,  # use the read-only memory to prevent the tool from modifying the memory
-)
+# vectordb.persist()
+retriever = vectordb.as_retriever(search_kwargs={"k": 3})
 
 # Combine Tools - Define tool use for search and summarization
 tools = [
     Tool(
         name="Search",
         func=lambda query: search_tool.run(query),  # Ensure the tool is callable
-        description="Useful for searching documents and answering questions.",
-    ),
-    Tool(
-        name="Summary",
-        func=summary_chain.run,
-        description="Useful for summarizing a conversation.",
+        description="Useful for searching documents directory and answering questions.",
     ),
 ]
 
-tools1 = [
-    Tool(
-        name="Summary",
-        func=summary_chain.run,
-        description="Useful for summarizing a conversation.",
-    )
-]
+prompt_template = PromptTemplate(
+    input_variables=["question"],
+    template="""
+    Question: {question}
+    
+    If you don't know the answer based on the information provided or retrieved, just say "I don't know."
+    Don't try to make up an answer.
+    """,
+)
+
 
 # Define the Research Agent with memory enabled and tools integrated
 Retriever_Agent = Agent(
@@ -111,12 +84,13 @@ Retriever_Agent = Agent(
         "You are an assistant for question-answering tasks."
         "Use the information present in the retrieved context to answer the question."
         "You have to provide a clear concise answer."
+        "If you don't know the answer say I don't know."
     ),
     verbose=True,
     allow_delegation=False,
     llm=llm,  # Pass the tools to the agent
     tools=tools,
-    # memory=True,  # Enable memory for the agent
+    prompt=prompt_template,
 )
 
 
@@ -130,21 +104,38 @@ hallucination_checker = Agent(
     verbose=True,
     allow_delegation=False,
     llm=llm,
-    tools=tools1,
+    # memory=True
+    # tools=tools1
 )
 
 content_writer_agent = Agent(
     role="Content Writer",
     goal="Write engaging content based on the provided research or information.",
     backstory=(
-        "You are a skilled writer who excels at turning raw data into captivating narratives. "
+        "You are a skilled writer who excels at turning raw data into captivating narratives."
         "Your task is to write clear, structured, and engaging content."
     ),
     verbose=True,
-    allow_delegation=True,
+    allow_delegation=False,
     llm=llm,
-    tools=tools1,
+    # memory=True,
+    # tools=tools1
     # memory=True,  # Enable memory if the agent needs to remember context across content pieces
+)
+
+conclusion_agent = Agent(
+    role="Conclusion Agent",
+    goal="Generate a concise and well-rounded conclusion or summary based on the final output.",
+    backstory=(
+        "You are responsible for generating a final summary or conclusion based on the "
+        "results of all previous tasks. Your job is to ensure the output is clear, "
+        "concise, and comprehensively covers the key points."
+    ),
+    verbose=True,
+    allow_delegation=False,
+    llm=llm,
+    # memory=True,
+    # Optionally include summarization tools if needed
 )
 
 
@@ -156,91 +147,167 @@ retriever_task = Task(
     ),
     expected_output=(
         "You should answer the user's question based on the information retrieved from the directory."
-        " Return a clear and concise text as a response. If you don't have the answer, return 'I don't know'."
+        "Return a clear and concise text as a response. If you don't have the answer, return 'I don't know'."
     ),
     agent=Retriever_Agent,
+    # memory=True
     # tools=tools,  # Pass the tools to the task as well
     # memory=True,  # Enable memory for the task
 )
 
 content_writer_task = Task(
     description=(
-        "Use the verified research information provided by the Research Agent. "
-        "Your task is to create a well-structured and engaging piece of content. "
-        "Focus on clarity, readability, and flow. The content should be suitable for "
+        "Use the verified research information provided by the Research Agent."
+        "Your task is to create a well-structured and engaging piece of content."
+        "Focus on clarity, readability, and flow. The content should be suitable for"
         "the intended audience and the topic should be covered comprehensively."
     ),
     expected_output=(
-        "A complete and engaging piece of content (e.g., blog post, article, or report) "
-        "that is well-structured, easy to read, and aligns with the information provided. "
+        "A complete and engaging piece of content"
+        "that is well-structured, easy to read, and aligns with the information provided."
         "The final content should be formatted and ready for publication."
     ),
-    agent=content_writer_agent,
     context=[retriever_task],  # Pass the previous task as context
+    agent=content_writer_agent,
+    # memory=True
 )
 
 hallucination_task = Task(
     description=(
-        "Review the response generated by the Research Agent and check for hallucinations. "
+        "Review the response generated by the Research Agent and check for hallucinations."
         "Ensure that the response is factually accurate."
     ),
     expected_output=("A validated and corrected response, free of hallucinations."),
     context=[content_writer_task],
     agent=hallucination_checker,
+    # memory=True,
+)
+
+# Define a more concise Conclusion Task
+conclusion_task = Task(
+    description=(
+        "Generate a concise summary of the results from the previous tasks. "
+        "The conclusion should focus on the key points and provide a brief overview. "
+        "Keep the summary to one to six sentences."
+    ),
+    expected_output=(
+        "A brief, one to six sentences summary that highlights the key takeaways from the previous tasks."
+    ),
+    context=[content_writer_task, hallucination_task],  # Include prior tasks as context
+    agent=conclusion_agent,
+    # memory=True,
 )
 
 
 # Define the Crew with memory enabled
 rag_crew = Crew(
-    agents=[Retriever_Agent, content_writer_agent, hallucination_checker],
-    tasks=[retriever_task, content_writer_task, hallucination_task],
-    verbose=True,  # Enable memory for the entire crew
+    agents=[
+        Retriever_Agent,
+        content_writer_agent,
+        hallucination_checker,
+        conclusion_agent,
+    ],
+    tasks=[retriever_task, content_writer_task, hallucination_task, conclusion_task],
+    verbose=True,
     process=Process.sequential,
-    # memory=True,
-    # embedder=dict(
-    #         provider="huggingface",
-    #         config=dict(
-    #             model="sentence-transformers/all-MiniLM-L6-v2",
-    #         ),
-    #     )
+    memory=True,  # Enable memory for the entire crew
+    embedder=dict(
+        provider="huggingface",
+        config=dict(
+            model="sentence-transformers/all-MiniLM-L6-v2",
+        ),
+    ),
     # process=Process.concurrent
 )
-
 qa_chain = RetrievalQA.from_chain_type(
-    llm=llm, chain_type="stuff", retriever=retriever, return_source_documents=True
+    llm=llm,
+    chain_type="stuff",
+    retriever=retriever,
+    return_source_documents=True,  # Ensure this is set to True
 )
 
 
 def process_llm_response(llm_response):
     print("\nSources:")
     source_temp = []
+    true_temp = []
     for source in llm_response["source_documents"]:
         if source.metadata["source"] not in source_temp:
             source_temp.append(source.metadata["source"])
-
+    # print(source.metadata['source'])
     for source in source_temp:
         source = (
             source.replace("_", "/")
             .replace("+", ":")
-            .replace("docs-data/", "")
+            .replace("AllData/", "")
+            .replace("docs-data-test/", "")
             .replace(".txt", "")
         )
+        true_temp.append(source)
         print(source)
-    print("\n")
-    # print(source.metadata['source'])
+    return true_temp
 
 
-# Interactive Loop to handle user queries
-while True:
-    query = input("Enter a question: ")  # Get the input from the user
-    if query.lower() == "exit":  # Exit condition
-        break
-
-    inputs = {"question": query}  # Use the input to form the inputs dictionary
+def handle_query(query):
+    inputs = {"question": query}
 
     # Call the CrewAI process with the input question
     result = rag_crew.kickoff(inputs=inputs)
-    # Print the result
+
+    if not result or "I don't know" in result:
+        return "I don't know"
+
     print(result)
+
+    # Invoke the LLM for additional query handling
     llm_response = qa_chain.invoke(query)
     process_llm_response(llm_response)
+
+
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+
+def serialize_crew_output(crew_output):
+    """Convert CrewOutput to a JSON-serializable dictionary."""
+    # Assuming crew_output is a complex object with attributes you need to extract
+    return {
+        "output": str(crew_output),  # Convert or extract relevant attributes
+    }
+
+
+@app.route("/ask", methods=["POST"])
+def ask_question():
+    try:
+        data = request.get_json()
+        question = data.get("question")
+        if not question:
+            return jsonify({"error": "No question provided"}), 400
+
+        # Use the existing handle_query function to process the question
+        inputs = {"question": question}
+        result = rag_crew.kickoff(inputs=inputs)
+
+        # Convert the CrewOutput to a JSON-serializable format
+        serialized_result = serialize_crew_output(result)
+
+        llm_response = qa_chain.invoke(question)
+        link = process_llm_response(llm_response)
+
+        # Return the serialized result as JSON response
+        return jsonify({"result": serialized_result, "link": link})
+        # return result
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# Health check endpoint
+@app.route("/health", methods=["GET"])
+def health_check():
+    return jsonify({"status": "ok"})
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5001, debug=False)

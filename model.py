@@ -11,8 +11,8 @@ from langchain.vectorstores import Chroma
 load_dotenv()
 # Set API keys
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
-os.environ["HF_TOKEN"] = os.getenv("HF_TOKEN")
+os.environ["GROQ_API_KEY"] = os.getenv("groq_api")
+os.environ["HF_TOKEN"] = os.getenv("HF_API_KEY")
 
 
 persist_directory = "dbAlldata"
@@ -24,16 +24,16 @@ from langchain.chains import RetrievalQA
 # Initialize the LLM with the correct API key
 llm = ChatOpenAI(
     openai_api_base="https://api.groq.com/openai/v1",
-    openai_api_key=os.environ["GROQ_API_KEY"],
+    openai_api_key=os.environ["groq_api"],
     model_name="llama-3.1-8b-instant",
     temperature=0,
 )
 embeddings = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2", model_kwargs={"device": "cpu"}
+    model_name="sentence-transformers/all-MiniLM-L6-v2", model_kwargs={"device": "cuda"}
 )
 # Initialize the search tool with directory search
 search_tool = DirectorySearchTool(
-    directory="AllData",
+    directory="Data2",
     config=dict(
         llm=dict(
             provider="groq",
@@ -104,8 +104,6 @@ hallucination_checker = Agent(
     verbose=True,
     allow_delegation=False,
     llm=llm,
-    # memory=True
-    # tools=tools1
 )
 
 content_writer_agent = Agent(
@@ -118,9 +116,6 @@ content_writer_agent = Agent(
     verbose=True,
     allow_delegation=False,
     llm=llm,
-    # memory=True,
-    # tools=tools1
-    # memory=True,  # Enable memory if the agent needs to remember context across content pieces
 )
 
 conclusion_agent = Agent(
@@ -134,8 +129,6 @@ conclusion_agent = Agent(
     verbose=True,
     allow_delegation=False,
     llm=llm,
-    # memory=True,
-    # Optionally include summarization tools if needed
 )
 
 
@@ -150,9 +143,6 @@ retriever_task = Task(
         "Return a clear and concise text as a response. If you don't have the answer, return 'I don't know'."
     ),
     agent=Retriever_Agent,
-    # memory=True
-    # tools=tools,  # Pass the tools to the task as well
-    # memory=True,  # Enable memory for the task
 )
 
 content_writer_task = Task(
@@ -169,7 +159,6 @@ content_writer_task = Task(
     ),
     context=[retriever_task],  # Pass the previous task as context
     agent=content_writer_agent,
-    # memory=True
 )
 
 hallucination_task = Task(
@@ -180,7 +169,6 @@ hallucination_task = Task(
     expected_output=("A validated and corrected response, free of hallucinations."),
     context=[content_writer_task],
     agent=hallucination_checker,
-    # memory=True,
 )
 
 # Define a more concise Conclusion Task
@@ -195,7 +183,6 @@ conclusion_task = Task(
     ),
     context=[content_writer_task, hallucination_task],  # Include prior tasks as context
     agent=conclusion_agent,
-    # memory=True,
 )
 
 
@@ -217,7 +204,6 @@ rag_crew = Crew(
             model="sentence-transformers/all-MiniLM-L6-v2",
         ),
     ),
-    # process=Process.concurrent
 )
 qa_chain = RetrievalQA.from_chain_type(
     llm=llm,
@@ -234,16 +220,11 @@ def process_llm_response(llm_response):
     for source in llm_response["source_documents"]:
         if source.metadata["source"] not in source_temp:
             source_temp.append(source.metadata["source"])
-    # print(source.metadata['source'])
     for source in source_temp:
-        source = (
-            source.replace("_", "/")
-            .replace("+", ":")
-            .replace("AllData/", "")
-            .replace("docs-data-test/", "")
-            .replace(".txt", "")
-        )
-        true_temp.append(source)
+        filename = os.path.basename(source)
+        name_without_extension = os.path.splitext(filename)[0]
+        url = name_without_extension.replace('_', '/').replace('+', ':')
+        true_temp.append(url)
         print(source)
     return true_temp
 
@@ -263,51 +244,49 @@ def handle_query(query):
     llm_response = qa_chain.invoke(query)
     process_llm_response(llm_response)
 
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
-from flask import Flask, request, jsonify
+app = FastAPI()
 
-app = Flask(__name__)
+# Define a Pydantic model for the request body
+class QuestionRequest(BaseModel):
+    question: str
 
 
 def serialize_crew_output(crew_output):
-    """Convert CrewOutput to a JSON-serializable dictionary."""
-    # Assuming crew_output is a complex object with attributes you need to extract
+
     return {
-        "output": str(crew_output),  # Convert or extract relevant attributes
+        "output": str(crew_output),
     }
 
 
-@app.route("/ask", methods=["POST"])
-def ask_question():
+@app.post("/ask")
+async def ask_question(request: QuestionRequest):
     try:
-        data = request.get_json()
-        question = data.get("question")
+        question = request.question
         if not question:
-            return jsonify({"error": "No question provided"}), 400
+            raise HTTPException(status_code=400, detail="No question provided")
 
-        # Use the existing handle_query function to process the question
         inputs = {"question": question}
         result = rag_crew.kickoff(inputs=inputs)
 
-        # Convert the CrewOutput to a JSON-serializable format
         serialized_result = serialize_crew_output(result)
 
         llm_response = qa_chain.invoke(question)
         link = process_llm_response(llm_response)
 
-        # Return the serialized result as JSON response
-        return jsonify({"result": serialized_result, "link": link})
-        # return result
+        return {"result": serialized_result, "link": link}
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# Health check endpoint
-@app.route("/health", methods=["GET"])
-def health_check():
-    return jsonify({"status": "ok"})
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=False)
+    import uvicorn
+    try:
+        uvicorn.run(app, host="0.0.0.0", port=5001)
+    except KeyboardInterrupt:
+        print("Server shut down gracefully")
+    except Exception as e:
+        print(f"An error occurred: {e}")

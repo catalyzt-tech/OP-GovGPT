@@ -91,6 +91,7 @@ Retriever_Agent = Agent(
     llm=llm,  # Pass the tools to the agent
     tools=tools,
     prompt=prompt_template,
+    max_iter=3,
 )
 
 
@@ -104,6 +105,7 @@ hallucination_checker = Agent(
     verbose=True,
     allow_delegation=False,
     llm=llm,
+    max_iter=1,
 )
 
 content_writer_agent = Agent(
@@ -116,6 +118,7 @@ content_writer_agent = Agent(
     verbose=True,
     allow_delegation=False,
     llm=llm,
+    max_iter=1,
 )
 
 conclusion_agent = Agent(
@@ -129,6 +132,7 @@ conclusion_agent = Agent(
     verbose=True,
     allow_delegation=False,
     llm=llm,
+    max_iter=1,
 )
 
 
@@ -223,7 +227,7 @@ def process_llm_response(llm_response):
     for source in source_temp:
         filename = os.path.basename(source)
         name_without_extension = os.path.splitext(filename)[0]
-        url = name_without_extension.replace('_', '/').replace('+', ':')
+        url = name_without_extension.replace("_", "/").replace("+", ":")
         true_temp.append(url)
         print(source)
     return true_temp
@@ -244,10 +248,12 @@ def handle_query(query):
     llm_response = qa_chain.invoke(query)
     process_llm_response(llm_response)
 
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 app = FastAPI()
+
 
 # Define a Pydantic model for the request body
 class QuestionRequest(BaseModel):
@@ -284,6 +290,7 @@ async def ask_question(request: QuestionRequest):
 
 if __name__ == "__main__":
     import uvicorn
+
     try:
         uvicorn.run(app, host="0.0.0.0", port=5001)
     except KeyboardInterrupt:

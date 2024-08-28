@@ -1,8 +1,12 @@
 crewai==0.51.1
 crewai_tools==0.8.3
-fastapi==0.112.0
-langchain==0.2.14
-langchain_community==0.2.12
-langchain_openai==0.1.22
-python-dotenv==1.0.1
+fastapi==0.112.2
+langchain==0.2.15
+langchain_community==0.2.13
+langchain_mongodb==0.1.8
+langchain_openai==0.1.23
 pydantic==2.8.2
+pymongo==4.7.1
+torch==2.4.0
+transformers==4.44.0
+uvicorn==0.30.6

@@ -9,7 +9,7 @@ class Citation:
     def __init__(self):
         self.llm = ChatOpenAI(
             openai_api_base="https://api.groq.com/openai/v1",
-            openai_api_key=os.environ["groq_api"],
+            openai_api_key=os.environ["GROQ_API_KEY"],
             model_name="llama-3.1-8b-instant",
             temperature=0,
         )
@@ -17,7 +17,7 @@ class Citation:
             model_name="sentence-transformers/all-MiniLM-L6-v2",
             model_kwargs={"device": "cpu"},
         )
-        self.client = MongoClient(os.environ["MongoDB"])
+        self.client = MongoClient(os.environ["MONGODB_API_KEY"])
         self.db = self.client["Vector-store"]
         self.collection = self.db["store-1"]
         self.vector_store = MongoDBAtlasVectorSearch(

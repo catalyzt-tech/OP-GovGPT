@@ -2,59 +2,41 @@ from crewai import Agent
 from langchain.agents import Tool
 from langchain_openai import ChatOpenAI
 import os
-from crewai_tools import DirectorySearchTool
+from citation import Citation
+from crewai_tools import BaseTool
 
 os.environ["GROQ_API_KEY"] = os.getenv("groq_api")
 
+
+class InfoSearchTool(BaseTool):
+    name: str = "Info Search Tool"
+    description: str = "Search data related information."
+
+    def _run(self, query: str) -> str:
+        # Retrieve relevant documents based on the query
+        cite = Citation()
+        documents = cite.vector_store
+        return documents.invoke(query)
+        # Return the content of the retrieved documents
+
+
 # Initialize the search tool with the specified directory and model configuration
-search_tool = DirectorySearchTool(
-    directory="docs-data-test",
-    config=dict(
-        llm=dict(
-            provider="groq",
-            config=dict(
-                model="llama-3.1-70b-versatile",
-            ),
-        ),
-        embedder=dict(
-            provider="huggingface",
-            config=dict(
-                model="sentence-transformers/all-MiniLM-L6-v2",
-            ),
-        ),
-    ),
-)
 
 
 class ResearchCrewAgents:
 
     def __init__(self):
         # Initialize the LLM to be used by the agents
-        self.llm = ChatOpenAI(
-            openai_api_base="https://api.groq.com/openai/v1",
-            openai_api_key=os.environ["groq_api"],
-            model_name="llama-3.1-70b-versatile",
-            temperature=0,
-            max_tokens=512,
-        )
+        self.cite = Citation()
         # SELECT YOUR MODEL HERE
-        self.selected_llm = self.llm
+        self.selected_llm = self.cite.llm
 
     def researcher(self):
         # Setup the tool for the Researcher agent
-        tools = [
-            Tool(
-                name="Search",
-                func=lambda inputs: search_tool.run(
-                    inputs
-                ),  # Use a lambda function to make `func` callable
-                description="Useful for searching documents directory and answering questions.",
-            ),
-        ]
-
+        tools = [InfoSearchTool()]
         return Agent(
             role="Research and Verification Agent",
-            goal="Search through the directory to find relevant, accurate answers.",
+            goal="Search through the data to find relevant and accurate answers.",
             backstory=(
                 "You are an assistant for question-answering tasks. "
                 "Use the information present in the retrieved context to answer the question. "
@@ -66,7 +48,7 @@ class ResearchCrewAgents:
             allow_delegation=False,
             llm=self.selected_llm,
             tools=tools,  # Correctly pass the tools list
-            max_iter=5,
+            max_iter=3,
         )
 
     def writer(self):

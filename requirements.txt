@@ -6,3 +6,6 @@ langchain_community==0.2.12
 langchain_openai==0.1.22
 python-dotenv==1.0.1
 pydantic==2.8.2
+transformers==4.44.0
+pymongo==4.7.1
+torch==2.4.0+cu124

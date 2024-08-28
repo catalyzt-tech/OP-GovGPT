@@ -10,9 +10,8 @@ class Citation:
         self.llm = ChatOpenAI(
             openai_api_base="https://api.groq.com/openai/v1",
             openai_api_key=os.environ["groq_api"],
-            model_name="llama-3.1-70b-versatile",
+            model_name="llama-3.1-8b-instant",
             temperature=0,
-            max_tokens=512,
         )
         self.embeddings = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2",
@@ -27,7 +26,7 @@ class Citation:
             text_key="content",
             embedding_key="embedding",
             filename_key="filename",
-        )
+        ).as_retriever(search_kwargs={"k": 3})
 
     def qa_chain(self):
         from langchain.chains import RetrievalQA
@@ -36,7 +35,7 @@ class Citation:
             chain = RetrievalQA.from_chain_type(
                 llm=self.llm,
                 chain_type="stuff",
-                retriever=self.vector_store.as_retriever(search_kwargs={"k": 3}),
+                retriever=self.vector_store,
                 return_source_documents=True,
             )
             print("QA Chain initialized successfully.")

@@ -8,7 +8,7 @@ This project is used by all people who want to connect with Optimism community.
 
 ## :sparkles:Features
 
-Model (LLAMA3.1-8b)
+Model (LLAMA3.1-70b)
 
 - Multi-Agent Architecture
 

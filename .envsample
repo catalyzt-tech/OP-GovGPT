@@ -1,0 +1,3 @@
+groq_api = "ADD API KEY HERE"
+HF_API_KEY = "ADD API KEY HERE"
+MongoDB = "ADD API KEY HERE"

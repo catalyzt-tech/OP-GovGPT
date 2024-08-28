@@ -46,7 +46,7 @@ for doc in documents:
 from pymongo import MongoClient
 
 # Connect to MongoDB Atlas
-client = MongoClient(os.environ["MongoDB"])
+client = MongoClient(os.environ["MONGODB_API_KEY"])
 db = client["Vector-store"]
 collection = db["store-1"]
 

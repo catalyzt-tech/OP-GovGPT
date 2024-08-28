@@ -5,7 +5,7 @@ import os
 from citation import Citation
 from crewai_tools import BaseTool
 
-os.environ["GROQ_API_KEY"] = os.getenv("groq_api")
+os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
 
 
 class InfoSearchTool(BaseTool):

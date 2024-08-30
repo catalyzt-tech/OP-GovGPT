@@ -89,7 +89,7 @@ async def ask_question(request: QuestionRequest):
 
 if __name__ == "__main__":
     try:
-        uvicorn.run(app, host="0.0.0.0", port=5001)
+        uvicorn.run(app, host="0.0.0.0", port=os.environ["PORT"])
     except KeyboardInterrupt:
         print("Server shut down gracefully")
     except Exception as e:

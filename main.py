@@ -11,6 +11,8 @@ from tasks import ResearchCrewTasks
 from citation import Citation  # Import the Citation class
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+# Default port on render is 10000
+os.environ["PORT"] = os.getenv("PORT", "10000")
 
 
 class ResearchCrew:

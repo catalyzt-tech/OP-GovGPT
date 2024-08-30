@@ -11,6 +11,8 @@ from tasks import ResearchCrewTasks
 from citation import Citation  # Import the Citation class
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+# Default port on render is 10000
+os.environ["PORT"] = os.getenv("PORT", "10000")
 
 
 class ResearchCrew:
@@ -87,7 +89,7 @@ async def ask_question(request: QuestionRequest):
 
 if __name__ == "__main__":
     try:
-        uvicorn.run(app, host="0.0.0.0", port=5001)
+        uvicorn.run(app, host="0.0.0.0", port=int(os.environ["PORT"]))
     except KeyboardInterrupt:
         print("Server shut down gracefully")
     except Exception as e:

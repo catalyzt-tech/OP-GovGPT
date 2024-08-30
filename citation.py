@@ -3,6 +3,10 @@ import os
 from langchain_openai import ChatOpenAI
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_mongodb.vectorstores import MongoDBAtlasVectorSearch
+from langchain_cohere import CohereEmbeddings
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class Citation:
@@ -13,10 +17,13 @@ class Citation:
             model_name="llama-3.1-8b-instant",
             temperature=0,
         )
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            model_kwargs={"device": "cpu"},
+        # COHERE
+        # self.cohere_client = cohere.Client(api_key=os.environ["COHERE_API_KEY"])
+        self.embeddings = CohereEmbeddings(
+            model="embed-english-light-v3.0",
+            cohere_api_key=os.environ["COHERE_API_KEY"],
         )
+        # MONGODB
         self.client = MongoClient(os.environ["MONGODB_API_KEY"])
         self.db = self.client["Vector-store"]
         self.collection = self.db["store-1"]

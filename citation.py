@@ -18,7 +18,6 @@ class Citation:
             temperature=0,
         )
         # COHERE
-        # self.cohere_client = cohere.Client(api_key=os.environ["COHERE_API_KEY"])
         self.embeddings = CohereEmbeddings(
             model="embed-english-light-v3.0",
             cohere_api_key=os.environ["COHERE_API_KEY"],

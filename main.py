@@ -65,23 +65,24 @@ async def ask_question(request: QuestionRequest):
     start_time = time.time()
     try:
         question = request.question
+        print(question)
         if not question:
             raise HTTPException(status_code=400, detail="No question provided")
+        if not str(question) == "":
+            inputs = {"question": question}
+            research_crew = ResearchCrew(inputs)
+            result = research_crew.run()
 
-        inputs = {"question": question}
-        research_crew = ResearchCrew(inputs)
-        result = research_crew.run()
+            serialized_result = serialize_crew_output(result)
+            print(f"Processing time for CrewAI: {time.time() - start_time} seconds")
+            # Initialize Citation instance and retrieve citations
+            citation = Citation()
+            qa_chain = citation.qa_chain()
+            llm_response = qa_chain(question)
+            links = citation.process_llm_response(llm_response)
+            print(f"Processing time for Link: {time.time() - start_time} seconds")
 
-        serialized_result = serialize_crew_output(result)
-        print(f"Processing time for CrewAI: {time.time() - start_time} seconds")
-        # Initialize Citation instance and retrieve citations
-        citation = Citation()
-        qa_chain = citation.qa_chain()
-        llm_response = qa_chain(question)
-        links = citation.process_llm_response(llm_response)
-        print(f"Processing time for Link: {time.time() - start_time} seconds")
-
-        return {"result": serialized_result, "links": links}
+            return {"result": serialized_result, "links": links}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

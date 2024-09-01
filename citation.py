@@ -14,12 +14,12 @@ class Citation:
         self.llm = ChatOpenAI(
             openai_api_base="https://api.groq.com/openai/v1",
             openai_api_key=os.environ["GROQ_API_KEY"],
-            model_name="llama-3.1-8b-instant",
+            model_name="llama-3.1-70b-versatile",
             temperature=0,
         )
         # COHERE
         self.embeddings = CohereEmbeddings(
-            model="embed-english-light-v3.0",
+            model="embed-english-v3.0",
             cohere_api_key=os.environ["COHERE_API_KEY"],
         )
         # MONGODB
@@ -32,7 +32,7 @@ class Citation:
             text_key="content",
             embedding_key="embedding",
             filename_key="filename",
-        ).as_retriever(search_kwargs={"k": 3})
+        ).as_retriever(search_kwargs={"k": 5})
 
     def qa_chain(self):
         from langchain.chains import RetrievalQA

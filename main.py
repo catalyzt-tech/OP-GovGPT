@@ -22,19 +22,16 @@ class ResearchCrew:
         self.tasks = ResearchCrewTasks()
 
     def run(self):
-        # Initialize agents
         researcher = self.agents.researcher()
         writer = self.agents.writer()
         conclude = self.agents.conclusion()
 
-        # Initialize tasks with respective agents
         research_task = self.tasks.research_task(researcher, self.inputs)
         writing_task = self.tasks.writing_task(writer, [research_task], self.inputs)
         conclude_task = self.tasks.conclusion_task(
             conclude, [writing_task], self.inputs
         )
 
-        # Form the crew with defined agents and tasks
         crew = Crew(
             agents=[researcher, writer, conclude],
             tasks=[research_task, writing_task, conclude_task],
@@ -42,19 +39,35 @@ class ResearchCrew:
             verbose=True,
         )
 
-        # Execute the crew to carry out the research project
+        return crew.kickoff(inputs=self.inputs)
+
+    def run_discord(self):
+        researcher = self.agents.researcher()
+        writer = self.agents.writer()
+        conclude = self.agents.conclusion()
+
+        research_task = self.tasks.research_task(researcher, self.inputs)
+        writing_task = self.tasks.writing_task(writer, [research_task], self.inputs)
+        conclude_task = self.tasks.discord_conclusion_task(
+            conclude, [writing_task], self.inputs
+        )
+
+        crew = Crew(
+            agents=[researcher, writer, conclude],
+            tasks=[research_task, writing_task, conclude_task],
+            process=Process.sequential,
+            verbose=True,
+        )
+
         return crew.kickoff(inputs=self.inputs)
 
 
-# Define a Pydantic model for the request body
 class QuestionRequest(BaseModel):
     question: str
 
 
 def serialize_crew_output(crew_output):
-    return {
-        "output": str(crew_output),
-    }
+    return {"output": str(crew_output)}
 
 
 app = FastAPI()
@@ -65,24 +78,50 @@ async def ask_question(request: QuestionRequest):
     start_time = time.time()
     try:
         question = request.question
-        print(question)
         if not question:
             raise HTTPException(status_code=400, detail="No question provided")
-        if not str(question) == "":
-            inputs = {"question": question}
-            research_crew = ResearchCrew(inputs)
-            result = research_crew.run()
 
-            serialized_result = serialize_crew_output(result)
-            print(f"Processing time for CrewAI: {time.time() - start_time} seconds")
-            # Initialize Citation instance and retrieve citations
-            citation = Citation()
-            qa_chain = citation.qa_chain()
-            llm_response = qa_chain(question)
-            links = citation.process_llm_response(llm_response)
-            print(f"Processing time for Link: {time.time() - start_time} seconds")
+        inputs = {"question": question}
+        research_crew = ResearchCrew(inputs)
+        result = research_crew.run()
 
-            return {"result": serialized_result, "links": links}
+        serialized_result = serialize_crew_output(result)
+        print(f"Processing time for CrewAI: {time.time() - start_time} seconds")
+
+        citation = Citation()
+        qa_chain = citation.qa_chain()
+        llm_response = qa_chain(question)
+        links = citation.process_llm_response(llm_response)
+        print(f"Processing time for Link: {time.time() - start_time} seconds")
+
+        return {"result": serialized_result, "links": links}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/discord")
+async def ask_question_discord(request: QuestionRequest):
+    start_time = time.time()
+    try:
+        question = request.question
+        if not question:
+            raise HTTPException(status_code=400, detail="No question provided")
+
+        inputs = {"question": question}
+        research_crew = ResearchCrew(inputs)
+        result = research_crew.run_discord()
+
+        serialized_result = serialize_crew_output(result)
+        print(f"Processing time for CrewAI: {time.time() - start_time} seconds")
+
+        citation = Citation()
+        qa_chain = citation.qa_chain()
+        llm_response = qa_chain(question)
+        links = citation.process_llm_response(llm_response)
+        print(f"Processing time for Link: {time.time() - start_time} seconds")
+
+        return {"result": serialized_result, "links": links}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -90,7 +129,6 @@ async def ask_question(request: QuestionRequest):
 
 if __name__ == "__main__":
     try:
-        print(int(os.environ["PORT"]))
         uvicorn.run(app, host="0.0.0.0", port=int(os.environ["PORT"]))
     except KeyboardInterrupt:
         print("Server shut down gracefully")

@@ -22,6 +22,7 @@ model = AutoModel.from_pretrained(model_name)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
 
+
 def embed_text(text):
     # Tokenize and encode the text
     inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
@@ -44,6 +45,7 @@ def chunk_text(text, max_length=200, overlap=3):
     
     for i in range(0, len(tokens), max_length - overlap):
         chunk = tokens[i:i + max_length]
+
         # Ensure chunk is within model's token limit
         if len(chunk) > 512:
             chunk = chunk[:512]
@@ -51,6 +53,7 @@ def chunk_text(text, max_length=200, overlap=3):
         chunks.append(chunk_text)
     
     return chunks
+
 
 # Connect to MongoDB Atlas
 client = MongoClient(os.environ["MONGODB_API_KEY"])
@@ -61,7 +64,7 @@ collection = db["store-3"]
 for doc in documents:
     chunks = chunk_text(doc["content"])
     chunk_embeddings = [embed_text(chunk) for chunk in chunks]
-    
+
     # Store each chunk with its embedding as a separate document
     doc_chunks = []
     for i, embedding in enumerate(chunk_embeddings):
@@ -72,7 +75,7 @@ for doc in documents:
             "embedding": embedding,
         }
         doc_chunks.append(chunk_doc)
-    
+
     if doc_chunks:
         collection.insert_many(doc_chunks)
 

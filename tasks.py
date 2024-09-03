@@ -7,13 +7,13 @@ class ResearchCrewTasks:
         return Task(
             description=(
                 f"Based on the {inputs['question']} question, extract information for the question {inputs['question']} "
-                "with the help of the tools. Use the Search tool to retrieve information from the directory. "
+                "with the help of the tools. Use the Search tool to retrieve information. "
                 "Verify the accuracy of the information and provide a clear, concise answer."
             ),
             expected_output=(
-                "A clear, concise, and factually accurate answer to the user's question, "
-                "based on the information retrieved from the directory. "
-                "If you don't have the answer, return 'I don't know'."
+                f"A clear, concise, and factually accurate answer to the user's question {inputs['question']},"
+                "based on the information retrieved from the tool use. Don't make up an answer."
+                "If you don't know the answer, just say 'I don't know'."
             ),
             agent=agent,
         )
@@ -25,12 +25,13 @@ class ResearchCrewTasks:
                 "Your task is to create a well-structured and engaging piece of content."
                 "Focus on clarity, readability, and flow. The content should be suitable for"
                 "the intended audience and the topic should be covered comprehensively."
-                f"Use {context} and {inputs['question']} to guide the writing process."
             ),
             expected_output=(
                 "A complete and engaging piece of content"
                 "that is well-structured, easy to read, and aligns with the information provided."
-                "The final content should be formatted and ready for publication."
+                "The final content should be formatted and ready for publication. Don't make up an answer."
+                f"The answer need to use the context {context} and write the best friendly answer related to the question {inputs['question']}"
+                "Also, use the data that have the high like_count, trust_level be priority to write an answer, if it has these options in the retrived data."
             ),
             agent=agent,
             context=context,
@@ -39,12 +40,29 @@ class ResearchCrewTasks:
     def conclusion_task(self, agent, context, inputs):
         return Task(
             description=(
-                "Generate a concise summary of the results from the writing_task tasks. "
+                f"Generate a concise summary of the results from the context {context} tasks. "
                 f"The conclusion should focus on the key points and provide a brief overview that related to {inputs['question']}. "
-                "Keep the summary to one to six sentences."
             ),
             expected_output=(
-                "A brief, one to six sentences summary that highlights the key takeaways from the previous tasks."
+                f"A brief summary that highlights the key of question {inputs['question']} from the previous tasks."
+                f"The answer need to use the context {context} and write the best friendly answer conclusion related to the question {inputs['question']}"
+                "Use the content part in the data retrieved from the tool to write the answer."
+            ),
+            agent=agent,
+            context=context,
+        )
+
+    def discord_conclusion_task(self, agent, context, inputs):
+        return Task(
+            description=(
+                f"Generate a concise summary of the results from the context {context} tasks. "
+                f"The conclusion should focus on the key points and provide a brief overview that related to {inputs['question']}. "
+            ),
+            expected_output=(
+                f"A brief summary that highlights the key of question {inputs['question']} from the previous tasks."
+                f"The answer need to use the context {context} and write the best friendly answer conclusion related to the question {inputs['question']}"
+                "Use the content part in the data retrieved from the tool to write the answer."
+                "Make sure that the answer need to be concluded in maximum 5 sentences."
             ),
             agent=agent,
             context=context,

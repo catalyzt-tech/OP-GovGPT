@@ -2,9 +2,12 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+build/
+dist/
+.env/
 # C extensions
 *.so
+Forgit/OP-GPT-Processor/docker run -d -p 5001:5001 --env-file .e
 
 # Distribution / packaging
 .Python

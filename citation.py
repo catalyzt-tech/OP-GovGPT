@@ -16,16 +16,17 @@ class Citation:
             openai_api_key=os.environ["GROQ_API_KEY"],
             model_name="llama-3.1-70b-versatile",
             temperature=0,
+            max_tokens=512,
         )
         # COHERE
         self.embeddings = CohereEmbeddings(
-            model="embed-english-v3.0",
+            model="embed-english-light-v3.0",
             cohere_api_key=os.environ["COHERE_API_KEY"],
         )
         # MONGODB
         self.client = MongoClient(os.environ["MONGODB_API_KEY"])
         self.db = self.client["Vector-store"]
-        self.collection = self.db["store-1"]
+        self.collection = self.db["store-2"]
         self.vector_store = MongoDBAtlasVectorSearch(
             collection=self.collection,
             embedding=self.embeddings,

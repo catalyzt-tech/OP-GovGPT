@@ -1,1 +1,0 @@
-docker run -d -p 5001:5001 --env-file .env --name gc-bot gc-bot2:latest

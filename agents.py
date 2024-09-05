@@ -1,6 +1,4 @@
 from crewai import Agent
-from langchain.agents import Tool
-from langchain_openai import ChatOpenAI
 import os
 from citation import Citation
 from crewai_tools import BaseTool
@@ -44,12 +42,13 @@ class ResearchCrewAgents:
                 "You are an assistant for question-answering tasks."
                 "Use the information present in the retrieved context to answer the question."
                 "Provide a clear and concise answer."
+                "Do not remove technical terms that are important for the answer, as this could make it out of context."
             ),
             verbose=True,
             allow_delegation=False,
             llm=self.selected_llm,
             tools=tools,  # Correctly pass the tools list
-            max_iter=3,
+            max_iter=5,
         )
 
     def writer(self):

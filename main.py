@@ -69,6 +69,16 @@ class QuestionRequest(BaseModel):
 def serialize_crew_output(crew_output):
     return {"output": str(crew_output)}
 
+USELESS_INFO_PHRASES = [
+    "I don't know",
+    "does not contain information",
+    "does not contain any information",
+    "any information",
+    "Unfortunately"
+]
+def has_useful_information(output):
+    return not any(phrase in output for phrase in USELESS_INFO_PHRASES)
+
 
 app = FastAPI()
 
@@ -87,14 +97,15 @@ async def ask_question(request: QuestionRequest):
 
         serialized_result = serialize_crew_output(result)
         print(f"Processing time for CrewAI: {time.time() - start_time} seconds")
-
-        citation = Citation()
-        qa_chain = citation.qa_chain()
-        llm_response = qa_chain(question)
-        links = citation.process_llm_response(llm_response)
-        print(f"Processing time for Link: {time.time() - start_time} seconds")
-
-        return {"result": serialized_result, "links": links}
+        links = []
+        if has_useful_information(serialized_result['output']):
+            citation = Citation()
+            qa_chain = citation.qa_chain()
+            llm_response = qa_chain(question)
+            links = citation.process_llm_response(llm_response)
+            print(f"Processing time for Link: {time.time() - start_time} seconds")
+            return {"result": serialized_result, "links": links}
+        return {"result": "I cannot find any relevant information on this topic", "links": links}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -115,13 +126,15 @@ async def ask_question_discord(request: QuestionRequest):
         serialized_result = serialize_crew_output(result)
         print(f"Processing time for CrewAI: {time.time() - start_time} seconds")
 
-        citation = Citation()
-        qa_chain = citation.qa_chain()
-        llm_response = qa_chain(question)
-        links = citation.process_llm_response(llm_response)
-        print(f"Processing time for Link: {time.time() - start_time} seconds")
-
-        return {"result": serialized_result, "links": links}
+        links = []
+        if has_useful_information(serialized_result['output']):
+            citation = Citation()
+            qa_chain = citation.qa_chain()
+            llm_response = qa_chain(question)
+            links = citation.process_llm_response(llm_response)
+            print(f"Processing time for Link: {time.time() - start_time} seconds")
+            return {"result": serialized_result, "links": links}
+        return {"result": "I cannot find any relevant information on this topic", "links": links}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

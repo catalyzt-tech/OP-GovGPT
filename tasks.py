@@ -48,7 +48,7 @@ class ResearchCrewTasks:
             ),
             expected_output=(
                 f"A brief summary that highlights the key of question {inputs['question']} from the previous tasks."
-                f"The answer need to use the context {context} and write the best friendly answer conclusion related to the use all the key points to conclude, don't forget to use the technical terms word to conclude."
+                f"Ensure the conclusion utilizes all key points and technical terms, providing a comprehensive summary that is contextually relevant to {inputs['question']}"
                 "Use the content part in the data retrieved from the tool to write the answer."
             ),
             agent=agent,

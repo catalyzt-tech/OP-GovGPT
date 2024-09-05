@@ -69,15 +69,15 @@ class QuestionRequest(BaseModel):
 def serialize_crew_output(crew_output):
     return {"output": str(crew_output)}
 
+USELESS_INFO_PHRASES = [
+    "I don't know",
+    "does not contain information",
+    "does not contain any information",
+    "any information",
+    "Unfortunately"
+]
 def has_useful_information(output):
-    phrases = [
-        "I don't know",
-        "does not contain information",
-        "does not contain any information",
-        "any information",
-        "Unfortunately"
-    ]
-    return not any(phrase in output for phrase in phrases)
+    return not any(phrase in output for phrase in USELESS_INFO_PHRASES)
 
 
 app = FastAPI()

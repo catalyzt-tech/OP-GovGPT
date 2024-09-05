@@ -1,7 +1,6 @@
 from pymongo import MongoClient
 import os
 from langchain_openai import ChatOpenAI
-from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_mongodb.vectorstores import MongoDBAtlasVectorSearch
 from langchain_cohere import CohereEmbeddings
 from dotenv import load_dotenv
@@ -14,7 +13,7 @@ class Citation:
         self.llm = ChatOpenAI(
             openai_api_base="https://api.groq.com/openai/v1",
             openai_api_key=os.environ["GROQ_API_KEY"],
-            model_name="llama-3.1-70b-versatile",
+            model_name="llama-3.1-8b-instant",
             temperature=0,
             max_tokens=512,
         )
@@ -33,7 +32,10 @@ class Citation:
             text_key="content",
             embedding_key="embedding",
             filename_key="filename",
-        ).as_retriever(search_kwargs={"k": 5})
+        ).as_retriever(
+    search_type="mmr",
+    search_kwargs={'k': 6, 'lambda_mult': 0.2}
+)
 
     def qa_chain(self):
         from langchain.chains import RetrievalQA

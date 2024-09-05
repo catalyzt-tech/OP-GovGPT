@@ -29,7 +29,7 @@ class ResearchCrew:
         research_task = self.tasks.research_task(researcher, self.inputs)
         writing_task = self.tasks.writing_task(writer, [research_task], self.inputs)
         conclude_task = self.tasks.conclusion_task(
-            conclude, [writing_task], self.inputs
+            conclude, [research_task, writing_task], self.inputs
         )
 
         crew = Crew(
@@ -49,7 +49,7 @@ class ResearchCrew:
         research_task = self.tasks.research_task(researcher, self.inputs)
         writing_task = self.tasks.writing_task(writer, [research_task], self.inputs)
         conclude_task = self.tasks.discord_conclusion_task(
-            conclude, [writing_task], self.inputs
+            conclude, [research_task, writing_task], self.inputs
         )
 
         crew = Crew(
@@ -87,12 +87,14 @@ async def ask_question(request: QuestionRequest):
 
         serialized_result = serialize_crew_output(result)
         print(f"Processing time for CrewAI: {time.time() - start_time} seconds")
-
-        citation = Citation()
-        qa_chain = citation.qa_chain()
-        llm_response = qa_chain(question)
-        links = citation.process_llm_response(llm_response)
-        print(f"Processing time for Link: {time.time() - start_time} seconds")
+        links = []
+        if 'I don\'t know' not in serialized_result['output'] and 'does not contain information' not in serialized_result['output']  and 'does not contain any information' not in serialized_result['output'] and 'any information' not in serialized_result['output'] and 'Unfortunately' not in serialized_result['output']:
+            citation = Citation()
+            qa_chain = citation.qa_chain()
+            llm_response = qa_chain(question)
+            links = citation.process_llm_response(llm_response)
+            print(f"Processing time for Link: {time.time() - start_time} seconds")
+        
 
         return {"result": serialized_result, "links": links}
 

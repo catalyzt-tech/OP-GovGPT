@@ -29,7 +29,7 @@ class ResearchCrew:
         research_task = self.tasks.research_task(researcher, self.inputs)
         writing_task = self.tasks.writing_task(writer, [research_task], self.inputs)
         conclude_task = self.tasks.conclusion_task(
-            conclude, [research_task, writing_task], self.inputs
+            conclude, [writing_task], self.inputs
         )
 
         crew = Crew(
@@ -49,7 +49,7 @@ class ResearchCrew:
         research_task = self.tasks.research_task(researcher, self.inputs)
         writing_task = self.tasks.writing_task(writer, [research_task], self.inputs)
         conclude_task = self.tasks.discord_conclusion_task(
-            conclude, [research_task, writing_task], self.inputs
+            conclude, [writing_task], self.inputs
         )
 
         crew = Crew(
@@ -68,6 +68,16 @@ class QuestionRequest(BaseModel):
 
 def serialize_crew_output(crew_output):
     return {"output": str(crew_output)}
+
+def has_useful_information(output):
+    phrases = [
+        "I don't know",
+        "does not contain information",
+        "does not contain any information",
+        "any information",
+        "Unfortunately"
+    ]
+    return not any(phrase in output for phrase in phrases)
 
 
 app = FastAPI()
@@ -88,15 +98,14 @@ async def ask_question(request: QuestionRequest):
         serialized_result = serialize_crew_output(result)
         print(f"Processing time for CrewAI: {time.time() - start_time} seconds")
         links = []
-        if 'I don\'t know' not in serialized_result['output'] and 'does not contain information' not in serialized_result['output']  and 'does not contain any information' not in serialized_result['output'] and 'any information' not in serialized_result['output'] and 'Unfortunately' not in serialized_result['output']:
+        if has_useful_information(serialized_result['output']):
             citation = Citation()
             qa_chain = citation.qa_chain()
             llm_response = qa_chain(question)
             links = citation.process_llm_response(llm_response)
             print(f"Processing time for Link: {time.time() - start_time} seconds")
-        
-
-        return {"result": serialized_result, "links": links}
+            return {"result": serialized_result, "links": links}
+        return {"result": "I cannot find any relevant information on this topic", "links": links}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -117,13 +126,15 @@ async def ask_question_discord(request: QuestionRequest):
         serialized_result = serialize_crew_output(result)
         print(f"Processing time for CrewAI: {time.time() - start_time} seconds")
 
-        citation = Citation()
-        qa_chain = citation.qa_chain()
-        llm_response = qa_chain(question)
-        links = citation.process_llm_response(llm_response)
-        print(f"Processing time for Link: {time.time() - start_time} seconds")
-
-        return {"result": serialized_result, "links": links}
+        links = []
+        if has_useful_information(serialized_result['output']):
+            citation = Citation()
+            qa_chain = citation.qa_chain()
+            llm_response = qa_chain(question)
+            links = citation.process_llm_response(llm_response)
+            print(f"Processing time for Link: {time.time() - start_time} seconds")
+            return {"result": serialized_result, "links": links}
+        return {"result": "I cannot find any relevant information on this topic", "links": links}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

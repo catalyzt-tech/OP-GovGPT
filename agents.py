@@ -42,7 +42,7 @@ class ResearchCrewAgents:
                 "You are an assistant for question-answering tasks."
                 "Use the information present in the retrieved context to answer the question."
                 "Provide a clear and concise answer."
-                "Do not make the answer to be out of context such as remove techinical terms that important for answer."
+                "Do not remove technical terms that are important for the answer, as this could make it out of context."
             ),
             verbose=True,
             allow_delegation=False,

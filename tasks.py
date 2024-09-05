@@ -7,13 +7,14 @@ class ResearchCrewTasks:
         return Task(
             description=(
                 f"Based on the {inputs['question']} question, extract information for the question {inputs['question']} "
-                "with the help of the tools. Use the Search tool to retrieve information. "
+                "with the help of the tools. Use the Search tool to retrieve information."
                 "Verify the accuracy of the information and provide a clear, concise answer."
             ),
             expected_output=(
                 f"A clear, concise, and factually accurate answer to the user's question {inputs['question']},"
                 "based on the information retrieved from the tool use. Don't make up an answer. If you don't know the answer, just say 'I don't know'."
-                "Don't remove the key points and technical terms words such as OP Stack, onchain, superchain and so on, it can make the answer not related to the improvement of optimism ecosystem."
+                f"If the {inputs['question']} question not related information retrieved from the tool just say 'Unfortunately, I could not find any relevant information on this topic'."
+                "Ensure to include key points and technical terms such as OP Stack, onchain, superchain, etc., to maintain relevance to the optimism ecosystem."
             ),
             agent=agent,
         )
@@ -31,8 +32,9 @@ class ResearchCrewTasks:
                 "A complete and engaging piece of content"
                 "that is well-structured, easy to read, and aligns with the information provided."
                 "The final content should be formatted and ready for publication. Don't make up an answer."
+                f"If the {inputs['question']} question not related information retrieved from the research agents just say 'Unfortunately, I could not find any relevant information on this topic'."
                 f"The answer need to use the context {context} and write the best friendly answer related to the question {inputs['question']}"
-                "Also, use the data that have the high like_count, trust_level be priority to write an answer, if it has these options in the retrived data. Also, don't forget to use the technical terms word to write."
+                "Prioritize data with high like_count and trust_level when writing the answer, and ensure to incorporate technical terms."
             ),
             agent=agent,
             context=context,

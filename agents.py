@@ -48,7 +48,7 @@ class ResearchCrewAgents:
             allow_delegation=False,
             llm=self.selected_llm,
             tools=tools,  # Correctly pass the tools list
-            max_iter=5,
+            max_iter=3,
         )
 
     def writer(self):

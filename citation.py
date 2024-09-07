@@ -33,39 +33,14 @@ class Citation:
             embedding_key="embedding",
             filename_key="filename",
         ).as_retriever(
-    search_type="mmr",
-    search_kwargs={'k': 6, 'lambda_mult': 0.2}
+    search_kwargs={'k': 5}
 )
 
-    def qa_chain(self):
-        from langchain.chains import RetrievalQA
-
-        try:
-            chain = RetrievalQA.from_chain_type(
-                llm=self.llm,
-                chain_type="stuff",
-                retriever=self.vector_store,
-                return_source_documents=True,
-            )
-            print("QA Chain initialized successfully.")
-            return chain
-        except Exception as e:
-            print(f"Error initializing QA Chain: {e}")
-            raise
-
     def process_llm_response(self, llm_response):
-        print("\nSources:")
-        source_temp = []
         true_temp = []
-        for source in llm_response.get("source_documents", []):
-            filename = source.metadata.get("filename", "")
-            if filename not in source_temp:
-                source_temp.append(filename)
-
-        for filename in source_temp:
-            # Replace underscores with slashes and plus signs with colons, and remove file extension
+        for filename in llm_response:
             url = filename.replace("_", "/").replace("+", ":").replace(".txt", "")
-            true_temp.append(url)
-            print(url)  # Print the formatted URL
+            if url not in true_temp:
+                true_temp.append(url)
 
         return true_temp

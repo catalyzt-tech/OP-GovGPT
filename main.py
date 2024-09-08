@@ -4,6 +4,7 @@ from pydantic import BaseModel
 import time
 import uvicorn
 import re
+
 # Import the necessary classes
 from crewai import Crew, Process
 from agents import ResearchCrewAgents
@@ -23,17 +24,17 @@ class ResearchCrew:
         self.inputs = inputs
         self.agents = ResearchCrewAgents()
         self.tasks = ResearchCrewTasks()
-        
+
     def extract_filenames(self, document_str):
         # Define the regex pattern to extract all filenames
-        pattern = r"'filename': '([^']+)'"
-        
+        pattern = r"'file_name': '([^']+)'"
+
         # Find all matches for the pattern in the document string
         matches = re.findall(pattern, document_str)
-        
+
         # Return the list of extracted filenames
         return matches
-    
+
     def serialize_crew_output(self, crew_output):
         return {"output": str(crew_output)}
 
@@ -55,6 +56,9 @@ class ResearchCrew:
             verbose=True,
         )
 
+        # result = crew.kickoff(inputs=self.inputs)
+        # self.serailized_result = self.serialize_crew_output(result)
+        # return {"result": self.serailized_result}
         # Capture logs
         log_capture = io.StringIO()
         with redirect_stdout(log_capture):
@@ -62,7 +66,7 @@ class ResearchCrew:
 
         logs = log_capture.getvalue()
         self.filenames = self.extract_filenames(logs)
-        # print(f"Extracted Filenames: {filenames}")
+        print(f"Extracted Filenames: {self.filenames}")
         self.serailized_result = self.serialize_crew_output(result)
         self.citation = Citation().process_llm_response(self.filenames)
         return {"result": self.serailized_result, "links": self.citation}
@@ -98,7 +102,6 @@ class ResearchCrew:
         return {"result": self.serailized_result, "links": self.citation}
 
 
-
 class QuestionRequest(BaseModel):
     question: str
 
@@ -108,8 +111,10 @@ USELESS_INFO_PHRASES = [
     "does not contain information",
     "does not contain any information",
     "any information",
-    "Unfortunately"
+    "Unfortunately",
 ]
+
+
 def has_useful_information(output):
     return not any(phrase in output for phrase in USELESS_INFO_PHRASES)
 
@@ -128,11 +133,14 @@ async def ask_question(request: QuestionRequest):
         inputs = {"question": question}
         research_crew = ResearchCrew(inputs)
         result = research_crew.run()
-        if has_useful_information(result['result']):
+        if has_useful_information(result["result"]):
             return result
 
         print(f"Processing time for CrewAI: {time.time() - start_time} seconds")
-        return {"result": "I cannot find any relevant information on this topic", "links": []}
+        return {
+            "result": "I cannot find any relevant information on this topic",
+            "links": [],
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -148,14 +156,16 @@ async def ask_question_discord(request: QuestionRequest):
         inputs = {"question": question}
         research_crew = ResearchCrew(inputs)
         result = research_crew.run()
-        if has_useful_information(result['result']):
+        if has_useful_information(result["result"]):
             return result
 
         print(f"Processing time for CrewAI: {time.time() - start_time} seconds")
-        return {"result": "I cannot find any relevant information on this topic", "links": []}
+        return {
+            "result": "I cannot find any relevant information on this topic",
+            "links": [],
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 
 if __name__ == "__main__":

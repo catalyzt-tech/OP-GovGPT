@@ -16,7 +16,7 @@ class Citation:
             openai_api_key=os.environ["GROQ_API_KEY"],
             model_name="llama-3.1-70b-versatile",
             temperature=0,
-            # max_tokens=512,
+            max_tokens=512,
         )
         # COHERE
         self.embeddings = CohereEmbeddings(
@@ -44,9 +44,7 @@ class HybridSearcher:
         self.qdrant_client = QdrantClient(
             api_key=os.getenv("QDRANT_API_KEY"), location=os.getenv("QDRANT_URL_KEY")
         )
-        # self.qdrant_client.set_model(self.DENSE_MODEL)
         self.qdrant_client.set_model(self.DENSE_MODEL)
-        # comment this line to use dense vectors only
         self.qdrant_client.set_sparse_model(self.SPARSE_MODEL)
 
     def search(self, text: str):

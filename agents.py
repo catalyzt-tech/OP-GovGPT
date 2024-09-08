@@ -16,10 +16,6 @@ class InfoSearchTool(BaseTool):
     def _run(self, query: str) -> str:
         # Retrieve relevant documents based on the query
         return HybridSearcher("startupschunk2").search(query)
-        # cite = Citation()
-        # documents = cite.vector_store
-        # return documents.invoke(query)
-        # Return the content of the retrieved documents
 
 
 # Initialize the search tool with the specified directory and model configuration

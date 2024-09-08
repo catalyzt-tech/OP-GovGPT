@@ -2,7 +2,6 @@ import os
 from langchain_openai import ChatOpenAI
 from langchain_cohere import CohereEmbeddings
 from dotenv import load_dotenv
-import cohere
 
 load_dotenv()
 
@@ -52,7 +51,7 @@ class HybridSearcher:
             collection_name=self.collection_name,
             query_text=text,
             query_filter=None,  # If you don't want any filters for now
-            limit=10,  # 5 the closest results
+            limit=7,  # 5 the closest results
         )
         # `search_result` contains found vector ids with similarity scores
         # along with the stored payload

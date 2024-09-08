@@ -42,6 +42,7 @@ class ResearchCrewAgents:
             verbose=True,
             allow_delegation=False,
             llm=self.selected_llm,
+            max_iter=5,
             tools=tools,  # Correctly pass the tools list
         )
 
@@ -57,7 +58,7 @@ class ResearchCrewAgents:
             verbose=True,
             allow_delegation=False,
             llm=self.selected_llm,
-            max_iter=2,
+            max_iter=1,
         )
 
     def conclusion(self):
@@ -72,5 +73,5 @@ class ResearchCrewAgents:
             verbose=True,
             allow_delegation=False,
             llm=self.selected_llm,
-            max_iter=2,
+            max_iter=1,
         )

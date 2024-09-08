@@ -13,7 +13,7 @@ class ResearchCrewTasks:
             expected_output=(
                 f"A clear, concise, and factually accurate answer to the user's question {inputs['question']},"
                 "based on the information retrieved from the tool use. Don't make up an answer. If you don't know the answer, just say 'I don't know'."
-                f"If the {inputs['question']} question not related information retrieved from the tool just say 'Unfortunately, I could not find any relevant information on this topic'."
+                f"If the {inputs['question']} question not related information retrieved from the tool just say 'The answer can be incorrect or not related to the question'."
                 "Ensure to include key points and technical terms such as OP Stack, onchain, superchain, etc., to maintain relevance to the optimism ecosystem."
             ),
             agent=agent,

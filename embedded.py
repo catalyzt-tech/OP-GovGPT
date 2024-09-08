@@ -10,12 +10,16 @@ directory_path = "AllData"
 documents = []
 for filename in os.listdir(directory_path):
     if filename.endswith(".txt"):
-        with open(os.path.join(directory_path, filename), "r", encoding="utf-8") as file:
+        with open(
+            os.path.join(directory_path, filename), "r", encoding="utf-8"
+        ) as file:
             content = file.read()
             documents.append({"filename": filename, "content": content})
 
 # Load a Hugging Face model and tokenizer
-model_name = "sentence-transformers/all-MiniLM-L6-v2"  # You can choose a different model
+model_name = (
+    "sentence-transformers/all-MiniLM-L6-v2"  # You can choose a different model
+)
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModel.from_pretrained(model_name)
 
@@ -25,7 +29,9 @@ model.to(device)
 
 def embed_text(text):
     # Tokenize and encode the text
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
+    inputs = tokenizer(
+        text, return_tensors="pt", truncation=True, padding=True, max_length=512
+    )
 
     # Move the inputs to the same device as the model
     inputs = {k: v.to(device) for k, v in inputs.items()}
@@ -39,19 +45,20 @@ def embed_text(text):
 
     return embeddings.cpu().tolist()
 
+
 def chunk_text(text, max_length=200, overlap=3):
     tokens = tokenizer.encode(text, add_special_tokens=False)
     chunks = []
-    
+
     for i in range(0, len(tokens), max_length - overlap):
-        chunk = tokens[i:i + max_length]
+        chunk = tokens[i : i + max_length]
 
         # Ensure chunk is within model's token limit
         if len(chunk) > 512:
             chunk = chunk[:512]
         chunk_text = tokenizer.decode(chunk)
         chunks.append(chunk_text)
-    
+
     return chunks
 
 

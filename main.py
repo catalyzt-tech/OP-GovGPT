@@ -73,8 +73,12 @@ class ResearchCrew:
         )
 
         result = await crew.kickoff_async(inputs=self.inputs)
+
+        self.rawsource = self.extract_filenames(SharedState().get_citation_data())
+        self.citation_data = self.process_llm_response(self.rawsource)
+
         self.serailized_result = self.serialize_crew_output(result)
-        return {"result": self.serailized_result}
+        return {"result": self.serailized_result, "links": self.citation_data}
 
 
 class QuestionRequest(BaseModel):

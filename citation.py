@@ -39,11 +39,4 @@ class Citation:
             relevance_score_fn="cosine",  # Ensure 'cosine' is correctly implemented as a similarity function
         )
 
-    def process_llm_response(self, llm_response):
-        true_temp = []
-        for filename in llm_response:
-            url = filename.replace("_", "/").replace("+", ":").replace(".txt", "")
-            if url not in true_temp:
-                true_temp.append(url)
-
-        return true_temp
+    

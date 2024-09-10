@@ -4,11 +4,13 @@ from pydantic import BaseModel
 import time
 import uvicorn
 import re
+from shared_state import SharedState
 
 # Import the necessary classes
 from crewai import Crew, Process
 from agents import ResearchCrewAgents
 from tasks import ResearchCrewTasks
+from citation import Citation
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 # Default port on render is 10000
@@ -24,13 +26,23 @@ class ResearchCrew:
 
     def extract_filenames(self, document_str):
         # Define the regex pattern to extract all filenames
-        pattern = r"'file_name': '([^']+)'"
+        pattern = r"'source': '([^']+)'"
 
         # Find all matches for the pattern in the document string
         matches = re.findall(pattern, document_str)
 
         # Return the list of extracted filenames
         return matches
+
+    def process_llm_response(self, llm_response):
+        true_temp = []
+        for filename in llm_response:
+            file_name = os.path.splitext(os.path.basename(filename))[0]
+            url = file_name.replace("_", "/").replace("+", ":").replace(".txt", "")
+            if url not in true_temp:
+                true_temp.append(url)
+
+        return true_temp
 
     def serialize_crew_output(self, crew_output):
         return {"output": str(crew_output)}
@@ -48,10 +60,16 @@ class ResearchCrew:
             process=Process.sequential,
             verbose=True,
         )
-
         result = crew.kickoff(inputs=self.inputs)
+        
+        self.rawsource = self.extract_filenames(SharedState().get_citation_data())
+        self.citation_data = self.process_llm_response(self.rawsource)
+        
         self.serailized_result = self.serialize_crew_output(result)
-        return {"result": self.serailized_result}
+        return {"result": self.serailized_result, "links": self.citation_data}
+    
+    def get_citation_data(self):
+        return SharedState().get_citation_data()
 
     def run_discord(self):
         researcher = self.agents.researcher()
@@ -68,6 +86,7 @@ class ResearchCrew:
         )
 
         result = crew.kickoff(inputs=self.inputs)
+        #extract_filenames = self.extract_filenames(some_citation)
         self.serailized_result = self.serialize_crew_output(result)
         return {"result": self.serailized_result}
 
@@ -96,10 +115,6 @@ def map_input(user_input):
 
     elif any(x in text for x in ["retropgf 4", "retropgf 5"]):
         return text.replace("retropgf", "retrofunding")
-
-    elif any(x in text for x in ["retrofund"]):
-        return text.replace("retrofund", "retrofunding")
-
     else:
         return user_input
 

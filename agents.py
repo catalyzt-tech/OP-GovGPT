@@ -3,7 +3,6 @@ import os
 from citation import Citation
 from crewai_tools import BaseTool
 from dotenv import load_dotenv
-import os
 from shared_state import SharedState
 
 load_dotenv()

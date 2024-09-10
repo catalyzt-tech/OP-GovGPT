@@ -38,5 +38,3 @@ class Citation:
             filename_key="source",  # Ensure 'source' is the correct field name for the filenames
             relevance_score_fn="cosine",  # Ensure 'cosine' is correctly implemented as a similarity function
         )
-
-    

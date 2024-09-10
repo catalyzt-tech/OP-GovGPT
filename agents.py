@@ -16,12 +16,14 @@ class InfoSearchTool(BaseTool):
 
     def _run(self, query: str) -> str:
         # Retrieve relevant documents based on the query
-        citation = Citation().vector_store.as_retriever(search_kwargs={"k": 10}).invoke(query)
+        citation = (
+            Citation().vector_store.as_retriever(search_kwargs={"k": 12}).invoke(query)
+        )
         citation_str = str(citation)  # Convert to string to ensure it's serializable
         SharedState().set_citation_data(citation_str)
-        #print(citation_str)
+        # print(citation_str)
         return citation_str
-        
+
 
 # Initialize the search tool with the specified directory and model configuration
 class ResearchCrewAgents:
@@ -47,7 +49,7 @@ class ResearchCrewAgents:
             verbose=True,
             allow_delegation=False,
             llm=self.selected_llm,
-            max_iter=5,
+            max_iter=4,
             tools=tools,  # Correctly pass the tools list
         )
 

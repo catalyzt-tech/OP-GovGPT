@@ -60,13 +60,13 @@ class ResearchCrew:
             verbose=True,
         )
         result = crew.kickoff(inputs=self.inputs)
-        
+
         self.rawsource = self.extract_filenames(SharedState().get_citation_data())
         self.citation_data = self.process_llm_response(self.rawsource)
-        
+
         self.serailized_result = self.serialize_crew_output(result)
         return {"result": self.serailized_result, "links": self.citation_data}
-    
+
     def get_citation_data(self):
         return SharedState().get_citation_data()
 
@@ -84,8 +84,8 @@ class ResearchCrew:
             verbose=True,
         )
 
-        result = crew.kickoff(inputs=self.inputs)
-        #extract_filenames = self.extract_filenames(some_citation)
+        result = crew.kickoff_async(inputs=self.inputs)
+        # extract_filenames = self.extract_filenames(some_citation)
         self.serailized_result = self.serialize_crew_output(result)
         return {"result": self.serailized_result}
 

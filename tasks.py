@@ -17,6 +17,7 @@ class ResearchCrewTasks:
                 "Ensure to include key points and technical terms such as OP Stack, onchain, superchain, etc., to maintain relevance to the optimism ecosystem."
             ),
             agent=agent,
+            # async_execution=True,
         )
 
     def writing_task(self, agent, context, inputs):
@@ -38,6 +39,7 @@ class ResearchCrewTasks:
             ),
             agent=agent,
             context=context,
+            async_execution=True,
         )
 
     def conclusion_task(self, agent, context, inputs):
@@ -53,6 +55,7 @@ class ResearchCrewTasks:
             ),
             agent=agent,
             context=context,
+            # async_execution=True,
         )
 
     def discord_conclusion_task(self, agent, context, inputs):
@@ -69,4 +72,5 @@ class ResearchCrewTasks:
             ),
             agent=agent,
             context=context,
+            # async_execution=True,
         )

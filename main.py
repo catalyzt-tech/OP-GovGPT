@@ -10,7 +10,6 @@ from shared_state import SharedState
 from crewai import Crew, Process
 from agents import ResearchCrewAgents
 from tasks import ResearchCrewTasks
-from citation import Citation
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 # Default port on render is 10000

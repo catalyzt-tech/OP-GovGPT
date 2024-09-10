@@ -1,11 +1,11 @@
 import os
 from langchain_openai import ChatOpenAI
 from langchain_cohere import CohereEmbeddings
+from pymongo import MongoClient
+from langchain_mongodb.vectorstores import MongoDBAtlasVectorSearch
 from dotenv import load_dotenv
 
 load_dotenv()
-
-from qdrant_client import QdrantClient
 
 
 class Citation:
@@ -22,6 +22,22 @@ class Citation:
             model="embed-english-light-v3.0",
             cohere_api_key=os.environ["COHERE_API_KEY"],
         )
+        self.MONGO_URI = os.getenv("MONGO_URI")
+        self.DB_NAME = "GCBOT"
+        self.COLLECTION_NAME = "GCBOT"
+        self.ATLAS_VECTOR_SEARCH_INDEX_NAME = "GCBOT"
+        self.client = MongoClient(self.MONGO_URI)
+        self.db = self.client[self.DB_NAME]
+        self.collection = self.db[self.COLLECTION_NAME]
+        self.vector_store = MongoDBAtlasVectorSearch(
+            collection=self.collection,
+            index_name=self.ATLAS_VECTOR_SEARCH_INDEX_NAME,
+            embedding=self.embeddings,  # Your HuggingFace embedding model
+            text_key="text",  # Make sure 'text' is the correct field name in your collection
+            embedding_key="embedding",  # Make sure 'embedding' is the correct field name
+            filename_key="source",  # Ensure 'source' is the correct field name for the filenames
+            relevance_score_fn="cosine",  # Ensure 'cosine' is correctly implemented as a similarity function
+        )
 
     def process_llm_response(self, llm_response):
         true_temp = []
@@ -31,37 +47,3 @@ class Citation:
                 true_temp.append(url)
 
         return true_temp
-
-
-class HybridSearcher:
-    DENSE_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-    SPARSE_MODEL = "prithivida/Splade_PP_en_v1"
-
-    def __init__(self, collection_name):
-        self.collection_name = collection_name
-        # initialize Qdrant client
-        self.qdrant_client = QdrantClient(
-            api_key=os.getenv("QDRANT_API_KEY"), location=os.getenv("QDRANT_URL_KEY")
-        )
-        self.qdrant_client.set_model(self.DENSE_MODEL)
-        self.qdrant_client.set_sparse_model(self.SPARSE_MODEL)
-
-    def search(self, text: str):
-        search_result = self.qdrant_client.query(
-            collection_name=self.collection_name,
-            query_text=text,
-            query_filter=None,  # If you don't want any filters for now
-            limit=7,  # 5 the closest results
-        )
-        # `search_result` contains found vector ids with similarity scores
-        # along with the stored payload
-
-        # Select and return metadata
-        metadata = [hit.metadata for hit in search_result]
-        return metadata
-
-
-if __name__ == "__main__":
-    searcher = HybridSearcher("startupschunk2")
-    result = searcher.search("What is op")
-    print(result)

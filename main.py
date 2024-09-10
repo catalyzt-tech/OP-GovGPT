@@ -9,17 +9,14 @@ import re
 from crewai import Crew, Process
 from agents import ResearchCrewAgents
 from tasks import ResearchCrewTasks
-from citation import Citation  # Import the Citation class
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 # Default port on render is 10000
 os.environ["PORT"] = os.getenv("PORT", "10000")
 
-import io
-from contextlib import redirect_stdout
-
 
 class ResearchCrew:
+
     def __init__(self, inputs):
         self.inputs = inputs
         self.agents = ResearchCrewAgents()
@@ -41,65 +38,38 @@ class ResearchCrew:
     def run(self):
         researcher = self.agents.researcher()
         writer = self.agents.writer()
-        conclude = self.agents.conclusion()
 
         research_task = self.tasks.research_task(researcher, self.inputs)
         writing_task = self.tasks.writing_task(writer, [research_task], self.inputs)
-        conclude_task = self.tasks.conclusion_task(
-            conclude, [writing_task], self.inputs
-        )
 
         crew = Crew(
-            agents=[researcher, writer, conclude],
-            tasks=[research_task, writing_task, conclude_task],
+            agents=[researcher, writer],
+            tasks=[research_task, writing_task],
             process=Process.sequential,
             verbose=True,
         )
 
-        # result = crew.kickoff(inputs=self.inputs)
-        # self.serailized_result = self.serialize_crew_output(result)
-        # return {"result": self.serailized_result}
-        # Capture logs
-        log_capture = io.StringIO()
-        with redirect_stdout(log_capture):
-            result = crew.kickoff(inputs=self.inputs)
-
-        logs = log_capture.getvalue()
-        self.filenames = self.extract_filenames(logs)
-        print(f"Extracted Filenames: {self.filenames}")
+        result = crew.kickoff(inputs=self.inputs)
         self.serailized_result = self.serialize_crew_output(result)
-        self.citation = Citation().process_llm_response(self.filenames)
-        return {"result": self.serailized_result, "links": self.citation}
+        return {"result": self.serailized_result}
 
     def run_discord(self):
         researcher = self.agents.researcher()
         writer = self.agents.writer()
-        conclude = self.agents.conclusion()
 
         research_task = self.tasks.research_task(researcher, self.inputs)
         writing_task = self.tasks.writing_task(writer, [research_task], self.inputs)
-        conclude_task = self.tasks.discord_conclusion_task(
-            conclude, [writing_task], self.inputs
-        )
 
         crew = Crew(
-            agents=[researcher, writer, conclude],
-            tasks=[research_task, writing_task, conclude_task],
+            agents=[researcher, writer],
+            tasks=[research_task, writing_task],
             process=Process.sequential,
             verbose=True,
         )
 
-        # Capture logs
-        log_capture = io.StringIO()
-        with redirect_stdout(log_capture):
-            result = crew.kickoff(inputs=self.inputs)
-
-        logs = log_capture.getvalue()
-        self.filenames = self.extract_filenames(logs)
-        # print(f"Extracted Filenames: {filenames}")
+        result = crew.kickoff(inputs=self.inputs)
         self.serailized_result = self.serialize_crew_output(result)
-        self.citation = Citation().process_llm_response(self.filenames)
-        return {"result": self.serailized_result, "links": self.citation}
+        return {"result": self.serailized_result}
 
 
 class QuestionRequest(BaseModel):
@@ -119,6 +89,21 @@ def has_useful_information(output):
     return not any(phrase in output for phrase in USELESS_INFO_PHRASES)
 
 
+def map_input(user_input):
+    text = user_input.lower()
+    if any(x in text for x in ["retrofunding 1", "retrofunding 2", "retrofunding 3"]):
+        return text.replace("retrofunding", "retropgf")
+
+    elif any(x in text for x in ["retropgf 4", "retropgf 5"]):
+        return text.replace("retropgf", "retrofunding")
+
+    elif any(x in text for x in ["retrofund"]):
+        return text.replace("retrofund", "retrofunding")
+
+    else:
+        return user_input
+
+
 app = FastAPI()
 
 
@@ -129,8 +114,8 @@ async def ask_question(request: QuestionRequest):
         question = request.question
         if not question:
             raise HTTPException(status_code=400, detail="No question provided")
-
-        inputs = {"question": question}
+        mapped_question = map_input(question)
+        inputs = {"question": mapped_question}
         research_crew = ResearchCrew(inputs)
         result = research_crew.run()
         if has_useful_information(result["result"]):
@@ -150,11 +135,13 @@ async def ask_question_discord(request: QuestionRequest):
     start_time = time.time()
     try:
         question = request.question
+        mapped_question = map_input(question)
         if not question:
             raise HTTPException(status_code=400, detail="No question provided")
 
-        inputs = {"question": question}
-        research_crew = ResearchCrew(inputs)
+        inputs = {"question": mapped_question}
+        mappedinput = map_input(inputs)
+        research_crew = ResearchCrew(mappedinput)
         result = research_crew.run()
         if has_useful_information(result["result"]):
             return result
@@ -170,7 +157,12 @@ async def ask_question_discord(request: QuestionRequest):
 
 if __name__ == "__main__":
     try:
-        uvicorn.run(app, host="0.0.0.0", port=int(os.environ["PORT"]))
+        uvicorn.run(
+            "main:app",  # Replace with the actual module name (e.g., 'main' if your file is main.py)
+            host="0.0.0.0",
+            port=int(os.environ["PORT"]),
+            workers=4,  # Adjust based on your available CPU cores
+        )
     except KeyboardInterrupt:
         print("Server shut down gracefully")
     except Exception as e:

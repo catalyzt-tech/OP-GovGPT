@@ -1,8 +1,9 @@
 from crewai import Agent
 import os
-from citation import Citation, HybridSearcher
+from citation import Citation
 from crewai_tools import BaseTool
 from dotenv import load_dotenv
+import os
 
 load_dotenv()
 
@@ -15,7 +16,9 @@ class InfoSearchTool(BaseTool):
 
     def _run(self, query: str) -> str:
         # Retrieve relevant documents based on the query
-        return HybridSearcher("startupschunk2").search(query)
+        return (
+            Citation().vector_store.as_retriever(search_kwargs={"k": 15}).invoke(query)
+        )
 
 
 # Initialize the search tool with the specified directory and model configuration
@@ -42,7 +45,7 @@ class ResearchCrewAgents:
             verbose=True,
             allow_delegation=False,
             llm=self.selected_llm,
-            max_iter=5,
+            max_iter=3,
             tools=tools,  # Correctly pass the tools list
         )
 

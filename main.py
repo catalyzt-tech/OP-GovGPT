@@ -1,18 +1,15 @@
-import os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import time
 import uvicorn
 import re
+import os
 from shared_state import SharedState
-
-# Import the necessary classes
 from crewai import Crew, Process
 from agents import ResearchCrewAgents
 from tasks import ResearchCrewTasks
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-# Default port on render is 10000
 os.environ["PORT"] = os.getenv("PORT", "10000")
 
 
@@ -24,13 +21,8 @@ class ResearchCrew:
         self.tasks = ResearchCrewTasks()
 
     def extract_filenames(self, document_str):
-        # Define the regex pattern to extract all filenames
         pattern = r"'source': '([^']+)'"
-
-        # Find all matches for the pattern in the document string
         matches = re.findall(pattern, document_str)
-
-        # Return the list of extracted filenames
         return matches
 
     def process_llm_response(self, llm_response):
@@ -40,13 +32,12 @@ class ResearchCrew:
             url = file_name.replace("_", "/").replace("+", ":").replace(".txt", "")
             if url not in true_temp:
                 true_temp.append(url)
-
         return true_temp
 
     def serialize_crew_output(self, crew_output):
         return {"output": str(crew_output)}
 
-    def run(self):
+    async def run(self):
         researcher = self.agents.researcher()
         writer = self.agents.writer()
 
@@ -59,7 +50,7 @@ class ResearchCrew:
             process=Process.sequential,
             verbose=True,
         )
-        result = crew.kickoff(inputs=self.inputs)
+        result = await crew.kickoff_async(inputs=self.inputs)
 
         self.rawsource = self.extract_filenames(SharedState().get_citation_data())
         self.citation_data = self.process_llm_response(self.rawsource)
@@ -67,10 +58,7 @@ class ResearchCrew:
         self.serailized_result = self.serialize_crew_output(result)
         return {"result": self.serailized_result, "links": self.citation_data}
 
-    def get_citation_data(self):
-        return SharedState().get_citation_data()
-
-    def run_discord(self):
+    async def run_discord(self):
         researcher = self.agents.researcher()
         writer = self.agents.writer()
 
@@ -84,8 +72,7 @@ class ResearchCrew:
             verbose=True,
         )
 
-        result = crew.kickoff_async(inputs=self.inputs)
-        # extract_filenames = self.extract_filenames(some_citation)
+        result = await crew.kickoff_async(inputs=self.inputs)
         self.serailized_result = self.serialize_crew_output(result)
         return {"result": self.serailized_result}
 
@@ -131,7 +118,7 @@ async def ask_question(request: QuestionRequest):
         mapped_question = map_input(question)
         inputs = {"question": mapped_question}
         research_crew = ResearchCrew(inputs)
-        result = research_crew.run()
+        result = await research_crew.run()
         if has_useful_information(result["result"]):
             return result
 
@@ -154,9 +141,8 @@ async def ask_question_discord(request: QuestionRequest):
             raise HTTPException(status_code=400, detail="No question provided")
 
         inputs = {"question": mapped_question}
-        mappedinput = map_input(inputs)
-        research_crew = ResearchCrew(mappedinput)
-        result = research_crew.run()
+        research_crew = ResearchCrew(inputs)
+        result = await research_crew.run_discord()
         if has_useful_information(result["result"]):
             return result
 
@@ -172,10 +158,10 @@ async def ask_question_discord(request: QuestionRequest):
 if __name__ == "__main__":
     try:
         uvicorn.run(
-            "main:app",  # Replace with the actual module name (e.g., 'main' if your file is main.py)
+            "main:app",
             host="0.0.0.0",
             port=int(os.environ["PORT"]),
-            workers=4,  # Adjust based on your available CPU cores
+            workers=4,
         )
     except KeyboardInterrupt:
         print("Server shut down gracefully")

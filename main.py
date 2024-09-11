@@ -49,6 +49,14 @@ class ResearchCrew:
             tasks=[research_task, writing_task],
             process=Process.sequential,
             verbose=True,
+            # memory=True,
+            # embedder={
+            #     "provider": "cohere",
+            #     "config": {
+            #         "model": "embed-english-light-v3.0",
+            #         "vector_dimension": 384,
+            #     },
+            # },
         )
         result = await crew.kickoff_async(inputs=self.inputs)
 
@@ -71,7 +79,6 @@ class ResearchCrew:
             process=Process.sequential,
             verbose=True,
         )
-
         result = await crew.kickoff_async(inputs=self.inputs)
 
         self.rawsource = self.extract_filenames(SharedState().get_citation_data())
@@ -114,7 +121,6 @@ app = FastAPI()
 
 @app.post("/ask")
 async def ask_question(request: QuestionRequest):
-    start_time = time.time()
     try:
         question = request.question
         if not question:
@@ -123,21 +129,21 @@ async def ask_question(request: QuestionRequest):
         inputs = {"question": mapped_question}
         research_crew = ResearchCrew(inputs)
         result = await research_crew.run()
+
         if has_useful_information(result["result"]):
             return result
-
-        print(f"Processing time for CrewAI: {time.time() - start_time} seconds")
-        return {
-            "result": "I cannot find any relevant information on this topic",
-            "links": [],
-        }
+        else:
+            # If the result is not useful, don't return any links
+            {
+                "result": "I cannot find any relevant information on this topic",
+                "links": [],
+            }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/discord")
 async def ask_question_discord(request: QuestionRequest):
-    start_time = time.time()
     try:
         question = request.question
         mapped_question = map_input(question)
@@ -149,23 +155,28 @@ async def ask_question_discord(request: QuestionRequest):
         result = await research_crew.run_discord()
         if has_useful_information(result["result"]):
             return result
-
-        print(f"Processing time for CrewAI: {time.time() - start_time} seconds")
-        return {
-            "result": "I cannot find any relevant information on this topic",
-            "links": [],
-        }
+        else:
+            # If the result is not useful, don't return any links
+            {
+                "result": "I cannot find any relevant information on this topic",
+                "links": [],
+            }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+import os
+import uvicorn
 
 if __name__ == "__main__":
     try:
         uvicorn.run(
             "main:app",
             host="0.0.0.0",
-            port=int(os.environ["PORT"]),
-            workers=4,
+            port=int(os.environ.get("PORT", 5001)),  # Default to 5001 if not set
+            workers=int(
+                os.environ.get("UVICORN_WORKERS", 4)
+            ),  # Use the env variable, default to 4
         )
     except KeyboardInterrupt:
         print("Server shut down gracefully")

@@ -51,6 +51,7 @@ class ResearchCrewAgents:
             llm=self.selected_llm,
             max_iter=4,
             tools=tools,  # Correctly pass the tools list
+            memory=True,
         )
 
     def writer(self):
@@ -66,6 +67,7 @@ class ResearchCrewAgents:
             allow_delegation=False,
             llm=self.selected_llm,
             max_iter=1,
+            memory=True,
         )
 
     def conclusion(self):

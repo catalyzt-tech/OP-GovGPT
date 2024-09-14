@@ -62,7 +62,9 @@ class ResearchCrew:
         writer = self.agents.writer()
 
         research_task = self.tasks.research_task(researcher, self.inputs)
-        writing_task = self.tasks.writing_task(writer, [research_task], self.inputs)
+        writing_task = self.tasks.writing_task_discord(
+            writer, [research_task], self.inputs
+        )
 
         crew = Crew(
             agents=[researcher, writer],

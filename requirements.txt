@@ -14,3 +14,4 @@ torch==2.4.0
 transformers==4.44.0
 uvicorn==0.30.6
 sentence-transformers==3.0.1
+Flask-Cors==5.0.0

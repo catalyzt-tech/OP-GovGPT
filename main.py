@@ -1,7 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import time
-import uvicorn
+from fastapi.middleware.cors import CORSMiddleware  # Import CORSMiddleware for FastAPI
 import re
 import os
 from shared_state import SharedState
@@ -49,14 +48,6 @@ class ResearchCrew:
             tasks=[research_task, writing_task],
             process=Process.sequential,
             verbose=True,
-            # memory=True,
-            # embedder={
-            #     "provider": "cohere",
-            #     "config": {
-            #         "model": "embed-english-light-v3.0",
-            #         "vector_dimension": 384,
-            #     },
-            # },
         )
         result = await crew.kickoff_async(inputs=self.inputs)
 
@@ -118,6 +109,19 @@ def map_input(user_input):
 
 app = FastAPI()
 
+# Add CORS middleware for FastAPI
+
+# Use environment variable to determine the environment (production or development)
+is_production = os.getenv("ENV") == "production"
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://gptgov.app/"] if is_production else ["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"] if is_production else ["*"],
+    allow_headers=["Authorization", "Content-Type"] if is_production else ["*"],
+)
+
 
 @app.post("/ask")
 async def ask_question(request: QuestionRequest):
@@ -134,7 +138,7 @@ async def ask_question(request: QuestionRequest):
             return result
         else:
             # If the result is not useful, don't return any links
-            {
+            return {
                 "result": "I cannot find any relevant information on this topic",
                 "links": [],
             }
@@ -157,7 +161,7 @@ async def ask_question_discord(request: QuestionRequest):
             return result
         else:
             # If the result is not useful, don't return any links
-            {
+            return {
                 "result": "I cannot find any relevant information on this topic",
                 "links": [],
             }
@@ -165,7 +169,6 @@ async def ask_question_discord(request: QuestionRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-import os
 import uvicorn
 
 if __name__ == "__main__":
@@ -174,9 +177,7 @@ if __name__ == "__main__":
             "main:app",
             host="0.0.0.0",
             port=int(os.environ.get("PORT", 5001)),  # Default to 5001 if not set
-            workers=int(
-                os.environ.get("UVICORN_WORKERS", 4)
-            ),  # Use the env variable, default to 4
+            workers=int(os.environ.get("UVICORN_WORKERS", 4)),  # Default to 4 workers
         )
     except KeyboardInterrupt:
         print("Server shut down gracefully")

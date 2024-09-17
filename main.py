@@ -115,13 +115,17 @@ app = FastAPI()
 
 # Use environment variable to determine the environment (production or development)
 is_production = os.getenv("ENV") == "production"
-
+print("HERE IS is production ", is_production)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://gptgov.app/"] if is_production else ["*"],
-    allow_credentials=False,
-    allow_methods=["GET", "POST"] if is_production else ["*"],
-    allow_headers=["Authorization", "Content-Type"] if is_production else ["*"],
+    allow_origins=(
+        ["https://gptgov.app"]
+        if is_production
+        else ["http://localhost:3000", "http://127.0.0.1:3000"]
+    ),
+    allow_methods=["*"],
+    allow_headers=["*"],
+    # allow_credentials=True,
 )
 
 

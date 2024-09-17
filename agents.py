@@ -49,9 +49,8 @@ class ResearchCrewAgents:
             verbose=True,
             allow_delegation=False,
             llm=self.selected_llm,
-            max_iter=4,
+            max_iter=6,
             tools=tools,  # Correctly pass the tools list
-            memory=True,
         )
 
     def writer(self):
@@ -67,7 +66,6 @@ class ResearchCrewAgents:
             allow_delegation=False,
             llm=self.selected_llm,
             max_iter=1,
-            memory=True,
         )
 
     def conclusion(self):

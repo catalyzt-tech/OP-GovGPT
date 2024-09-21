@@ -19,16 +19,17 @@ client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
 collection = db[COLLECTION_NAME]
 
+DATA_DIR = os.getenv("DATA_DIR", "AllData")
 # Document loading and splitting
 loader = DirectoryLoader(
-    "AllData",
+    DATA_DIR,
     glob="**/*.txt",
     use_multithreading=True,
     loader_cls=TextLoader,
 )
 data = loader.load()
 
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=5)
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=100)
 docs = text_splitter.split_documents(data)
 
 # Initialize Hugging Face Embeddings

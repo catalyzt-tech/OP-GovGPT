@@ -3,6 +3,8 @@ FROM python:3.12-slim AS builder
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
+ENV UVICORN_WORKERS=10  
+# Default value for workers, can be overridden
 
 # Set the working directory in the container
 WORKDIR /app
@@ -28,5 +30,8 @@ COPY . .
 # Expose port 5001 to the outside world
 EXPOSE 5001
 
-# Command to run your application with Uvicorn
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5001", "--workers", "4"]
+# Install gunicorn (and uvicorn workers if not installed in requirements.txt)
+RUN pip install --no-cache-dir uvicorn
+
+# Command to run the application with Gunicorn and Uvicorn workers
+CMD /bin/sh -c "gunicorn -w ${UVICORN_WORKERS} -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:5001 --timeout 120"

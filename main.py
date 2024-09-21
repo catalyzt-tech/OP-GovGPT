@@ -1,57 +1,40 @@
-import os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import time
-import uvicorn
-import re
-from shared_state import SharedState
-
-# Import the necessary classes
+from fastapi.middleware.cors import CORSMiddleware
+import os
 from crewai import Crew, Process
 from agents import ResearchCrewAgents
 from tasks import ResearchCrewTasks
 
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-# Default port on render is 10000
-os.environ["PORT"] = os.getenv("PORT", "10000")
+
+# Setup environment variables
+def setup_environment():
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    os.environ["PORT"] = os.getenv("PORT", "10000")
+
+
+setup_environment()
 
 
 class ResearchCrew:
-
     def __init__(self, inputs):
         self.inputs = inputs
         self.agents = ResearchCrewAgents()
         self.tasks = ResearchCrewTasks()
 
-    def extract_filenames(self, document_str):
-        # Define the regex pattern to extract all filenames
-        pattern = r"'source': '([^']+)'"
-
-        # Find all matches for the pattern in the document string
-        matches = re.findall(pattern, document_str)
-
-        # Return the list of extracted filenames
-        return matches
-
-    def process_llm_response(self, llm_response):
-        true_temp = []
-        for filename in llm_response:
-            file_name = os.path.splitext(os.path.basename(filename))[0]
-            url = file_name.replace("_", "/").replace("+", ":").replace(".txt", "")
-            if url not in true_temp:
-                true_temp.append(url)
-
-        return true_temp
-
     def serialize_crew_output(self, crew_output):
-        return {"output": str(crew_output)}
+        return {"output": crew_output}
 
-    def run(self):
+    async def run(self, is_discord=False):
+        from hybridsearch import hybrid_research
+
         researcher = self.agents.researcher()
         writer = self.agents.writer()
 
         research_task = self.tasks.research_task(researcher, self.inputs)
-        writing_task = self.tasks.writing_task(writer, [research_task], self.inputs)
+        writing_task = (
+            self.tasks.writing_task_discord if is_discord else self.tasks.writing_task
+        )(writer, [research_task], self.inputs)
 
         crew = Crew(
             agents=[researcher, writer],
@@ -59,35 +42,11 @@ class ResearchCrew:
             process=Process.sequential,
             verbose=True,
         )
-        result = crew.kickoff(inputs=self.inputs)
-        
-        self.rawsource = self.extract_filenames(SharedState().get_citation_data())
-        self.citation_data = self.process_llm_response(self.rawsource)
-        
-        self.serailized_result = self.serialize_crew_output(result)
-        return {"result": self.serailized_result, "links": self.citation_data}
-    
-    def get_citation_data(self):
-        return SharedState().get_citation_data()
+        self.result = await crew.kickoff_async(inputs=self.inputs)
+        self.citation = hybrid_research(self.inputs, 5)[1]
 
-    def run_discord(self):
-        researcher = self.agents.researcher()
-        writer = self.agents.writer()
-
-        research_task = self.tasks.research_task(researcher, self.inputs)
-        writing_task = self.tasks.writing_task(writer, [research_task], self.inputs)
-
-        crew = Crew(
-            agents=[researcher, writer],
-            tasks=[research_task, writing_task],
-            process=Process.sequential,
-            verbose=True,
-        )
-
-        result = crew.kickoff(inputs=self.inputs)
-        #extract_filenames = self.extract_filenames(some_citation)
-        self.serailized_result = self.serialize_crew_output(result)
-        return {"result": self.serailized_result}
+        self.serialized_result = self.serialize_crew_output(self.result)
+        return {"result": self.serialized_result, "links": self.citation}
 
 
 class QuestionRequest(BaseModel):
@@ -100,82 +59,86 @@ USELESS_INFO_PHRASES = [
     "does not contain any information",
     "any information",
     "Unfortunately",
+    "Agent stopped due to iteration limit or time limit",
 ]
 
 
-def has_useful_information(output):
-    return not any(phrase in output for phrase in USELESS_INFO_PHRASES)
-
-
-def map_input(user_input):
-    text = user_input.lower()
-    if any(x in text for x in ["retrofunding 1", "retrofunding 2", "retrofunding 3"]):
-        return text.replace("retrofunding", "retropgf")
-
-    elif any(x in text for x in ["retropgf 4", "retropgf 5"]):
-        return text.replace("retropgf", "retrofunding")
-    else:
-        return user_input
+def has_useful_information(result):
+    return "Agent stopped due to iteration limit or time limit" not in result
 
 
 app = FastAPI()
 
+# Add CORS middleware for FastAPI
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=(
+        ["https://gptgov.app"]
+        if os.getenv("ENV") == "production"
+        else ["http://localhost:3000", "http://127.0.0.1:3000"]
+    ),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.post("/ask")
 async def ask_question(request: QuestionRequest):
-    start_time = time.time()
     try:
-        question = request.question
+        question = request.question.strip()
         if not question:
             raise HTTPException(status_code=400, detail="No question provided")
-        mapped_question = map_input(question)
-        inputs = {"question": mapped_question}
-        research_crew = ResearchCrew(inputs)
-        result = research_crew.run()
-        if has_useful_information(result["result"]):
-            return result
 
-        print(f"Processing time for CrewAI: {time.time() - start_time} seconds")
-        return {
-            "result": "I cannot find any relevant information on this topic",
-            "links": [],
-        }
+        research_crew = ResearchCrew({"question": question})
+        result = await research_crew.run()
+        crew_output = result["result"]["output"]
+
+        if has_useful_information(crew_output.raw):
+            return {"result": result}
+        else:
+            return {
+                "result": "I cannot find any relevant information on this topic",
+                "links": [],
+            }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error occurred: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 @app.post("/discord")
 async def ask_question_discord(request: QuestionRequest):
-    start_time = time.time()
     try:
-        question = request.question
-        mapped_question = map_input(question)
+        question = request.question.strip()
         if not question:
             raise HTTPException(status_code=400, detail="No question provided")
 
-        inputs = {"question": mapped_question}
-        mappedinput = map_input(inputs)
-        research_crew = ResearchCrew(mappedinput)
-        result = research_crew.run()
-        if has_useful_information(result["result"]):
-            return result
+        research_crew = ResearchCrew({"question": question})
+        result = await research_crew.run(is_discord=True)
+        crew_output = result["result"]["output"]
 
-        print(f"Processing time for CrewAI: {time.time() - start_time} seconds")
-        return {
-            "result": "I cannot find any relevant information on this topic",
-            "links": [],
-        }
+        if has_useful_information(crew_output.raw):
+            return {"result": result}
+        else:
+            return {
+                "result": "I cannot find any relevant information on this topic",
+                "links": [],
+            }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error occurred: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
+
+import uvicorn
 
 if __name__ == "__main__":
     try:
         uvicorn.run(
-            "main:app",  # Replace with the actual module name (e.g., 'main' if your file is main.py)
+            "main:app",
             host="0.0.0.0",
-            port=int(os.environ["PORT"]),
-            workers=4,  # Adjust based on your available CPU cores
+            port=int(os.environ.get("PORT", 5001)),
+            workers=int(os.environ.get("UVICORN_WORKERS", 4)),
+            log_level="info",
+            timeout_keep_alive=120,
         )
     except KeyboardInterrupt:
         print("Server shut down gracefully")

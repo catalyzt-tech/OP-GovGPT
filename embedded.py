@@ -19,9 +19,10 @@ client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
 collection = db[COLLECTION_NAME]
 
+DATA_DIR = os.getenv("DATA_DIR", "AllData")
 # Document loading and splitting
 loader = DirectoryLoader(
-    "/Users/suchanatratanarueangrong/Project/LLM/Optimism/AllData",
+    DATA_DIR,
     glob="**/*.txt",
     use_multithreading=True,
     loader_cls=TextLoader,

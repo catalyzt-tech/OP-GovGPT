@@ -94,7 +94,7 @@ async def ask_question(request: QuestionRequest):
         crew_output = result["result"]["output"]
 
         if has_useful_information(crew_output.raw):
-            return {"result": result}
+            return result
         else:
             return {
                 "result": "I cannot find any relevant information on this topic",
@@ -117,7 +117,7 @@ async def ask_question_discord(request: QuestionRequest):
         crew_output = result["result"]["output"]
 
         if has_useful_information(crew_output.raw):
-            return {"result": result}
+            return result
         else:
             return {
                 "result": "I cannot find any relevant information on this topic",

@@ -2,8 +2,27 @@ import os
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from langchain_cohere import CohereEmbeddings
+import re
 
+# Load environment variables from .env file
 load_dotenv()
+
+
+# Function to extract filenames from MongoDB results
+def extract_filenames(document_str):
+    pattern = r"'source': '([^']+)'"
+    matches = re.findall(pattern, document_str)
+    return list(set(matches))  # Remove duplicates more efficiently
+
+
+# Function to process the filenames into URL format
+def process_llm_response(llm_response):
+    true_temp = set()  # Use a set for better performance
+    for filename in llm_response:
+        file_name = os.path.splitext(os.path.basename(filename))[0]
+        url = file_name.replace("_", "/").replace("+", ":").replace(".txt", "")
+        true_temp.add(url)
+    return list(true_temp)  # Convert set back to list
 
 
 # Function to perform weighted reciprocal rank fusion
@@ -41,6 +60,7 @@ def weighted_reciprocal_rank(doc_lists, weights=None):
     return final_docs
 
 
+# MongoDB connection function
 def mongo_connect(uri):
     from pymongo.server_api import ServerApi
 
@@ -60,6 +80,7 @@ def mongo_connect(uri):
     return client
 
 
+# Function to generate embeddings for a query
 def generate_embedding(text):
     api_key = os.environ.get("COHERE_API_KEY")
 
@@ -120,7 +141,11 @@ def atlas_hybrid_search(
     )
     keyword_results_list = list(keyword_results)
 
-    # Format document lists for RRF
+    # Collect sources only for citation
+    extracted_filenames = extract_filenames(str(keyword_results_list))
+    citation_data = process_llm_response(extracted_filenames)
+
+    # Format document lists for RRF, excluding 'source'
     doc_lists = [vector_results_list, keyword_results_list]
     for i in range(len(doc_lists)):
         doc_lists[i] = [
@@ -134,13 +159,14 @@ def atlas_hybrid_search(
     # Apply rank fusion with weights
     fused_results = weighted_reciprocal_rank(doc_lists, weights)
 
-    return fused_results
+    return [fused_results, citation_data]
 
 
 # Load MongoDB URI from environment variables
 uri = os.getenv("MONGO_URI")
 client = mongo_connect(uri)
 
+# Define MongoDB details
 db_name = "GCBOT"
 collection_name = "GCBOT"
 vector_index_name = "GCBOT"
@@ -150,13 +176,30 @@ db = client.get_database(db_name)
 mycollection = db.get_collection(collection_name)
 
 
+# Function to perform hybrid research
 def hybrid_research(query, top_k):
+    # Check if the query is a dictionary and extract the string
+    if isinstance(query, dict) and "question" in query:
+        query_string = query["question"]
+    elif isinstance(query, str):
+        query_string = query
+    else:
+        raise ValueError(
+            "Query must be a string or a dictionary containing a 'question' key."
+        )
+
+    # Debugging output
+    print(
+        f"Hybrid search called with query: {query_string}, type: {type(query_string)}"
+    )
+
     result = atlas_hybrid_search(
-        query,
+        query_string,
         top_k,
         db_name,
         collection_name,
         vector_index_name,
         keyword_index_name,
     )
+
     return result

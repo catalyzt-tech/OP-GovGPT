@@ -22,19 +22,19 @@ class ResearchCrew:
     def extract_filenames(self, document_str):
         pattern = r"'source': '([^']+)'"
         matches = re.findall(pattern, document_str)
-        return matches
+        return list(set(matches))  # Remove duplicates more efficiently
 
     def process_llm_response(self, llm_response):
-        true_temp = []
+        true_temp = set()  # Use a set for better performance
         for filename in llm_response:
             file_name = os.path.splitext(os.path.basename(filename))[0]
             url = file_name.replace("_", "/").replace("+", ":").replace(".txt", "")
-            if url not in true_temp:
-                true_temp.append(url)
-        return true_temp
+            true_temp.add(url)
+        return list(true_temp)  # Convert set back to list
 
     def serialize_crew_output(self, crew_output):
-        return {"output": str(crew_output)}
+        # If crew_output is already a string, no need to convert to string again
+        return {"output": crew_output}
 
     async def run(self):
         researcher = self.agents.researcher()
@@ -51,11 +51,12 @@ class ResearchCrew:
         )
         result = await crew.kickoff_async(inputs=self.inputs)
 
-        self.rawsource = self.extract_filenames(SharedState().get_citation_data())
-        self.citation_data = self.process_llm_response(self.rawsource)
+        # self.rawsource = self.extract_filenames(SharedState().get_citation_data())
+        # self.citation_data = self.process_llm_response(self.rawsource)
 
         self.serailized_result = self.serialize_crew_output(result)
-        return {"result": self.serailized_result, "links": self.citation_data}
+        return {"result": self.serailized_result}
+        # return {"result": self.serailized_result, "links": self.citation_data}
 
     async def run_discord(self):
         researcher = self.agents.researcher()
@@ -74,11 +75,12 @@ class ResearchCrew:
         )
         result = await crew.kickoff_async(inputs=self.inputs)
 
-        self.rawsource = self.extract_filenames(SharedState().get_citation_data())
-        self.citation_data = self.process_llm_response(self.rawsource)
+        # self.rawsource = self.extract_filenames(SharedState().get_citation_data())
+        # self.citation_data = self.process_llm_response(self.rawsource)
 
         self.serailized_result = self.serialize_crew_output(result)
-        return {"result": self.serailized_result, "links": self.citation_data}
+        return {"result": self.serailized_result}
+        # return {"result": self.serailized_result, "links": self.citation_data}
 
 
 class QuestionRequest(BaseModel):
@@ -91,22 +93,26 @@ USELESS_INFO_PHRASES = [
     "does not contain any information",
     "any information",
     "Unfortunately",
+    "Agent stopped due to iteration limit or time limit",
 ]
 
 
-def has_useful_information(output):
-    return not any(phrase in output for phrase in USELESS_INFO_PHRASES)
+def has_useful_information(result):
+    # Access the tasks_output from the result
+    if "Agent stopped due to iteration limit or time limit" in result:
+        return False
+    return True
 
 
-def map_input(user_input):
-    text = user_input.lower()
-    if any(x in text for x in ["retrofunding 1", "retrofunding 2", "retrofunding 3"]):
-        return text.replace("retrofunding", "retropgf")
+# def map_input(user_input):
+#     text = user_input.lower()
+#     if any(x in text for x in ["retrofunding 1", "retrofunding 2", "retrofunding 3"]):
+#         return text.replace("retrofunding", "retropgf")
 
-    elif any(x in text for x in ["retropgf 4", "retropgf 5"]):
-        return text.replace("retropgf", "retrofunding")
-    else:
-        return user_input
+#     elif any(x in text for x in ["retropgf 4", "retropgf 5"]):
+#         return text.replace("retropgf", "retrofunding")
+#     else:
+#         return user_input
 
 
 app = FastAPI()
@@ -132,47 +138,57 @@ app.add_middleware(
 @app.post("/ask")
 async def ask_question(request: QuestionRequest):
     try:
-        question = request.question
+        question = request.question.strip()  # Strip any leading/trailing spaces
         if not question:
             raise HTTPException(status_code=400, detail="No question provided")
-        mapped_question = map_input(question)
-        inputs = {"question": mapped_question}
+        # mapped_question = map_input(question)
+        # inputs = {"question": mapped_question}
+        inputs = {"question": question}
         research_crew = ResearchCrew(inputs)
         result = await research_crew.run()
+        crew_output = result["result"]["output"]  # This is a CrewOutput object
 
-        if has_useful_information(result["result"]):
+        # Check if it has useful information
+        if has_useful_information(
+            crew_output.raw
+        ):  # Access 'raw' attribute of CrewOutput
             return result
         else:
-            # If the result is not useful, don't return any links
             return {
                 "result": "I cannot find any relevant information on this topic",
                 "links": [],
             }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error occurred: {e}")  # Log error for debugging
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 @app.post("/discord")
 async def ask_question_discord(request: QuestionRequest):
     try:
-        question = request.question
-        mapped_question = map_input(question)
+        question = request.question.strip()
         if not question:
             raise HTTPException(status_code=400, detail="No question provided")
 
-        inputs = {"question": mapped_question}
+        inputs = {"question": question}
         research_crew = ResearchCrew(inputs)
         result = await research_crew.run_discord()
-        if has_useful_information(result["result"]):
+        # Access the raw output from the CrewOutput object
+        crew_output = result["result"]["output"]  # This is a CrewOutput object
+
+        # Check if it has useful information
+        if has_useful_information(
+            crew_output.raw
+        ):  # Access 'raw' attribute of CrewOutput
             return result
         else:
-            # If the result is not useful, don't return any links
             return {
                 "result": "I cannot find any relevant information on this topic",
                 "links": [],
             }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error occurred: {e}")  # Log error for debugging
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 import uvicorn
@@ -183,7 +199,11 @@ if __name__ == "__main__":
             "main:app",
             host="0.0.0.0",
             port=int(os.environ.get("PORT", 5001)),  # Default to 5001 if not set
-            workers=int(os.environ.get("UVICORN_WORKERS", 4)),  # Default to 4 workers
+            workers=int(
+                os.environ.get("UVICORN_WORKERS", 4)
+            ),  # Adjust based on testing
+            log_level="info",  # Use 'debug' for more detailed logs if needed
+            timeout_keep_alive=120,  # Increase timeout if necessary
         )
     except KeyboardInterrupt:
         print("Server shut down gracefully")

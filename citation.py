@@ -15,8 +15,9 @@ class Citation:
             openai_api_key=os.environ["GROQ_API_KEY"],
             model_name="llama-3.1-70b-versatile",
             temperature=0,
-            max_tokens=512,
+            max_tokens=280,
         )
+        """FOR CHATGROQ"""
         # COHERE
         self.embeddings = CohereEmbeddings(
             model="embed-english-light-v3.0",

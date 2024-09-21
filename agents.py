@@ -3,11 +3,18 @@ import os
 from citation import Citation
 from crewai_tools import BaseTool
 from dotenv import load_dotenv
-from shared_state import SharedState
+from hybridsearch import hybrid_research
 
 load_dotenv()
 
 os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
+
+
+from crewai_tools import BaseTool
+from dotenv import load_dotenv
+from hybridsearch import hybrid_research
+
+load_dotenv()
 
 
 class InfoSearchTool(BaseTool):
@@ -15,14 +22,12 @@ class InfoSearchTool(BaseTool):
     description: str = "Search data related information."
 
     def _run(self, query: str) -> str:
-        # Retrieve relevant documents based on the query
-        citation = (
-            Citation().vector_store.as_retriever(search_kwargs={"k": 12}).invoke(query)
-        )
-        citation_str = str(citation)  # Convert to string to ensure it's serializable
-        SharedState().set_citation_data(citation_str)
-        # print(citation_str)
-        return citation_str
+        try:
+            result = hybrid_research(query, 5)
+            return result
+        except Exception as e:
+            print(f"Error occurred while performing search: {e}")
+            return "An error occurred during the search operation."
 
 
 # Initialize the search tool with the specified directory and model configuration
@@ -38,7 +43,7 @@ class ResearchCrewAgents:
         # Setup the tool for the Researcher agent
         tools = [InfoSearchTool()]
         return Agent(
-            role="Research and Verification Agent",
+            role="Research Agent",
             goal="Search through the data to find relevant and accurate answers.",
             backstory=(
                 "You are an assistant for question-answering tasks."
@@ -49,7 +54,7 @@ class ResearchCrewAgents:
             verbose=True,
             allow_delegation=False,
             llm=self.selected_llm,
-            max_iter=6,
+            # max_iter=5,
             tools=tools,  # Correctly pass the tools list
         )
 

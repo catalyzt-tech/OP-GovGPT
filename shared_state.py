@@ -1,5 +1,9 @@
+import threading
+
+
 class SharedState:
     _instance = None
+    _lock = threading.Lock()  # Add a lock for synchronization
 
     def __new__(cls):
         if cls._instance is None:
@@ -8,7 +12,9 @@ class SharedState:
         return cls._instance
 
     def set_citation_data(self, data):
-        self.citation_data = data
+        with self._lock:  # Use lock to ensure thread-safe access
+            self.citation_data = data
 
     def get_citation_data(self):
-        return self.citation_data
+        with self._lock:  # Use lock to ensure thread-safe access
+            return self.citation_data

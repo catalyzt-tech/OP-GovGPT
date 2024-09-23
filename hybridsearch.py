@@ -154,7 +154,7 @@ def atlas_hybrid_search(
         ]
 
     # Set weights: more importance to vector search (e.g., 2x weight for vector results)
-    weights = [2, 1]
+    weights = [1, 1]
 
     # Apply rank fusion with weights
     fused_results = weighted_reciprocal_rank(doc_lists, weights)

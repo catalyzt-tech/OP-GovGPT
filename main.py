@@ -5,6 +5,7 @@ import os
 from crewai import Crew, Process
 from agents import ResearchCrewAgents
 from tasks import ResearchCrewTasks
+import logging
 
 
 # Setup environment variables
@@ -15,6 +16,8 @@ def setup_environment():
 
 setup_environment()
 
+logging.basicConfig(level=logging.INFO)
+
 
 class ResearchCrew:
     def __init__(self, inputs):
@@ -23,7 +26,12 @@ class ResearchCrew:
         self.tasks = ResearchCrewTasks()
 
     def serialize_crew_output(self, crew_output):
-        return {"output": crew_output}
+        """Serialize crew output to a dictionary with a 'raw' key."""
+        if isinstance(crew_output, str):
+            return {"raw": crew_output}
+        elif isinstance(crew_output, dict):
+            return {"raw": crew_output.get("raw", "")}
+        return {"raw": getattr(crew_output, "raw", "")}
 
     async def run(self, is_discord=False):
         from hybridsearch import hybrid_research
@@ -42,11 +50,36 @@ class ResearchCrew:
             process=Process.sequential,
             verbose=True,
         )
-        self.result = await crew.kickoff_async(inputs=self.inputs)
-        self.citation = hybrid_research(self.inputs, 5)[1]
 
-        self.serialized_result = self.serialize_crew_output(self.result)
-        return {"result": self.serialized_result, "links": self.citation}
+        try:
+            # Kick off the crew task
+            self.result = await crew.kickoff_async(inputs=self.inputs)
+            logging.info(f"Result received from crew: {self.result}")
+        except Exception as e:
+            logging.error(f"Error during crew kickoff: {e}")
+            raise HTTPException(status_code=500, detail="Error while running crew task")
+
+        try:
+            # Perform hybrid search
+            self.citation = hybrid_research(self.inputs, 5)[1]
+        except Exception as e:
+            logging.error(f"Error during hybrid search: {e}")
+            raise HTTPException(status_code=500, detail="Error during hybrid search")
+
+        try:
+            # Serialize the result
+            self.serialized_result = self.serialize_crew_output(self.result)
+            logging.info(f"Serialized result: {self.serialized_result}")
+        except Exception as e:
+            logging.error(f"Error serializing result: {e}")
+            raise HTTPException(
+                status_code=500, detail="Error while serializing crew output"
+            )
+
+        return {
+            "result": self.serialized_result.get("raw", ""),
+            "links": self.citation,
+        }
 
 
 class QuestionRequest(BaseModel):
@@ -64,12 +97,13 @@ USELESS_INFO_PHRASES = [
 
 
 def has_useful_information(result):
-    return "Agent stopped due to iteration limit or time limit" not in result
+    """Check if the result contains useful information."""
+    return not any(phrase in result for phrase in USELESS_INFO_PHRASES)
 
 
 app = FastAPI()
 
-# Add CORS middleware for FastAPI
+# CORS Middleware configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=(
@@ -82,6 +116,22 @@ app.add_middleware(
 )
 
 
+# Helper function to process the question
+async def process_question(question: str, is_discord: bool = False):
+    research_crew = ResearchCrew({"question": question})
+    result = await research_crew.run(is_discord)
+
+    # Check if result["result"] is useful
+    crew_output_raw = result.get("result", "")
+    if not has_useful_information(crew_output_raw):
+        return {
+            "result": "I cannot find any relevant information on this topic",
+            "links": [],
+        }
+
+    return result
+
+
 @app.post("/ask")
 async def ask_question(request: QuestionRequest):
     try:
@@ -89,19 +139,9 @@ async def ask_question(request: QuestionRequest):
         if not question:
             raise HTTPException(status_code=400, detail="No question provided")
 
-        research_crew = ResearchCrew({"question": question})
-        result = await research_crew.run()
-        crew_output = result["result"]["output"]
-
-        if has_useful_information(crew_output.raw):
-            return result
-        else:
-            return {
-                "result": "I cannot find any relevant information on this topic",
-                "links": [],
-            }
+        return await process_question(question)
     except Exception as e:
-        print(f"Error occurred: {e}")
+        logging.error(f"Error occurred: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
@@ -112,19 +152,9 @@ async def ask_question_discord(request: QuestionRequest):
         if not question:
             raise HTTPException(status_code=400, detail="No question provided")
 
-        research_crew = ResearchCrew({"question": question})
-        result = await research_crew.run(is_discord=True)
-        crew_output = result["result"]["output"]
-
-        if has_useful_information(crew_output.raw):
-            return result
-        else:
-            return {
-                "result": "I cannot find any relevant information on this topic",
-                "links": [],
-            }
+        return await process_question(question, is_discord=True)
     except Exception as e:
-        print(f"Error occurred: {e}")
+        logging.error(f"Error occurred: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
@@ -141,6 +171,6 @@ if __name__ == "__main__":
             timeout_keep_alive=120,
         )
     except KeyboardInterrupt:
-        print("Server shut down gracefully")
+        logging.info("Server shut down gracefully")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logging.error(f"An error occurred: {e}")

@@ -1,4 +1,4 @@
-# GC Bot For Optimism Community"
+# GC Bot For Optimism Community
 
 Create and implement a sophisticated chatbot for the Optimism community that is capable of answering customer inquiries and providing support. The goal is to serve the Optimism community and save time searching for documents or other questions on the forum.
 
@@ -8,7 +8,7 @@ This project is used by all people who want to connect with Optimism community.
 
 ## :sparkles:Features
 
-Model (LLAMA3.1-8b)
+Model (LLAMA3.1-70b)
 
 - Multi-Agent Architecture
 
@@ -42,7 +42,7 @@ Start the server
 
 **Client:** Python
 
-**Tools:** GROQ, CrewAI, MongoDB Atlas
+**Tools:** GROQ, CrewAI, MongoDB Atlas, Cohere
 
 ## :envelope_with_arrow:Feedback
 

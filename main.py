@@ -61,7 +61,7 @@ class ResearchCrew:
 
         try:
             # Perform hybrid search
-            self.citation = hybrid_research(self.inputs, 5)[1]
+            self.citation = hybrid_research(self.inputs, 10)[1]
         except Exception as e:
             logging.error(f"Error during hybrid search: {e}")
             raise HTTPException(status_code=500, detail="Error during hybrid search")

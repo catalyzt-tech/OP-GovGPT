@@ -5,7 +5,7 @@ from langchain_cohere import CohereEmbeddings
 import re
 
 # Load environment variables from .env file
-load_dotenv()
+load_dotenv(override=True)
 
 
 # Function to extract filenames from MongoDB results
@@ -163,7 +163,7 @@ def atlas_hybrid_search(
 
 
 # Load MongoDB URI from environment variables
-uri = os.getenv("MONGO_URI")
+uri = os.environ["MONGO_URI"]
 client = mongo_connect(uri)
 
 # Define MongoDB details
@@ -203,3 +203,6 @@ def hybrid_research(query, top_k):
     )
 
     return result
+
+
+# print(hybrid_research("What is the capital of France?", 10))

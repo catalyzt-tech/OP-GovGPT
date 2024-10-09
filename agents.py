@@ -23,7 +23,7 @@ class InfoSearchTool(BaseTool):
 
     def _run(self, query: str) -> str:
         try:
-            result = hybrid_research(query, 5)
+            result = hybrid_research(query, 10)
             return result
         except Exception as e:
             print(f"Error occurred while performing search: {e}")
@@ -54,7 +54,7 @@ class ResearchCrewAgents:
             verbose=True,
             allow_delegation=False,
             llm=self.selected_llm,
-            # max_iter=5,
+            max_iter=10,
             tools=tools,  # Correctly pass the tools list
         )
 

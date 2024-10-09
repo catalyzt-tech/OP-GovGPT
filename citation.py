@@ -13,7 +13,7 @@ class Citation:
         self.llm = ChatOpenAI(
             openai_api_base="https://api.groq.com/openai/v1",
             openai_api_key=os.environ["GROQ_API_KEY"],
-            model_name="llama-3.2-11b-text-preview",
+            model_name="llama-3.2-90b-text-preview",
             temperature=0,
             max_tokens=280,
         )
